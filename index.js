@@ -1,52 +1,46 @@
-// TODO Implement ranges separately
-// TODO Rename execute > patch
-// TODO Write test for patch
-// TODO Split into files
-// TODO README.md
-// TODO npm
-
+// Overlaps with https://tools.ietf.org/html/rfc6902
 const OpTypes = {
-  ADD: "ADD",
-  ADD_RANGE: "ADD_RANGE",
-  SET: "SET",
-  DEL: "DEL",
-  DEL_RANGE: "DEL_RANGE",
-  SWAP: "SWP",
+  ADD: "add",
+  ADD_RANGE: "add_range",
+  SET: "replace",
+  DEL: "remove",
+  DEL_RANGE: "remove_range",
+  SWAP: "swap",
 };
 
-export function createOpAdd(path, value, transaction) {
-  return { type: OpTypes.ADD, transaction, path, value };
+export function opAdd(path, value, transaction) {
+  return { op: OpTypes.ADD, transaction, path, value };
 }
 
-export function createOpAddRange(path, value, transaction) {
-  return { type: OpTypes.ADD_RANGE, transaction, path, value };
+export function opAddRange(path, value, transaction) {
+  return { op: OpTypes.ADD_RANGE, transaction, path, value };
 }
 
-export function createOpSet(path, value, transaction) {
-  return { type: OpTypes.SET, transaction, path, value };
+export function opSet(path, value, transaction) {
+  return { op: OpTypes.SET, transaction, path, value };
 }
 
-export function createOpDelete(path, transaction) {
-  return { type: OpTypes.DEL, transaction, path };
+export function opDelete(path, transaction) {
+  return { op: OpTypes.DEL, transaction, path };
 }
 
-export function createOpDeleteRange(path, transaction) {
-  return { type: OpTypes.DEL_RANGE, transaction, path };
+export function opDeleteRange(path, transaction) {
+  return { op: OpTypes.DEL_RANGE, transaction, path };
 }
 
-export function createOpSwap(path, transaction) {
-  return { type: OpTypes.SWAP, transaction, path };
+export function opSwap(path, transaction) {
+  return { op: OpTypes.SWAP, transaction, path };
 }
 
-export function createOpEnriched(obj, op) {
+export function enrich(obj, op) {
   if (Array.isArray(op)) {
-    return op.map((o) => createOpEnriched(obj, o));
+    return op.map((o) => enrich(obj, o));
   }
 
   if (
-    op.type === OpTypes.SET ||
-    op.type === OpTypes.DEL ||
-    op.type === OpTypes.DEL_RANGE
+    op.op === OpTypes.SET ||
+    op.op === OpTypes.DEL ||
+    op.op === OpTypes.DEL_RANGE
   ) {
     return { ...op, before: getValue(obj, op.path) };
   }
@@ -67,33 +61,33 @@ function getValue(obj, path) {
   }
 }
 
-export function createOpSetEnriched(path, before, value, transaction) {
-  return { ...createOpSet(path, value, transaction), before };
+export function opSetEnriched(path, before, value, transaction) {
+  return { ...opSet(path, value, transaction), before };
 }
 
-export function createOpDeleteEnriched(path, before, transaction) {
-  return { ...createOpDelete(path, transaction), before };
+export function opDeleteEnriched(path, before, transaction) {
+  return { ...opDelete(path, transaction), before };
 }
 
-export function createOpDeleteRangeEnriched(path, before, transaction) {
-  return { ...createOpDeleteRange(path, transaction), before };
+export function opDeleteRangeEnriched(path, before, transaction) {
+  return { ...opDeleteRange(path, transaction), before };
 }
 
-export function createOpInverse(op) {
-  switch (op.type) {
+export function inverse(op) {
+  switch (op.op) {
     case OpTypes.ADD:
-      return createOpDelete(op.path);
+      return opDelete(op.path);
     case OpTypes.ADD_RANGE:
-      return createOpDeleteRange([
+      return opDeleteRange([
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
       ]);
     case OpTypes.SET:
-      return createOpSetEnriched(op.path, op.value, op.before);
+      return opSetEnriched(op.path, op.value, op.before);
     case OpTypes.DEL:
-      return createOpAdd(op.path, op.before);
+      return opAdd(op.path, op.before);
     case OpTypes.DEL_RANGE:
-      return createOpAdd(
+      return opAdd(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
         op.before
       );
@@ -110,10 +104,10 @@ export function createOpInverse(op) {
         index: r00.index,
         length: r10.length,
       };
-      return createOpSwap([...op.path.slice(0, -1), [r11, r01]]);
+      return opSwap([...op.path.slice(0, -1), [r11, r01]]);
     }
     default:
-      throw new Error(`Unknown operation type '${op.type}'`);
+      throw new Error(`Unknown operation op '${op.op}'`);
   }
 }
 
@@ -121,7 +115,7 @@ export function emptyHistory() {
   return [];
 }
 
-export function execute(state, op, newTransaction) {
+export function patch(state, op, newTransaction) {
   let history = state.history;
   let transaction = state.transaction;
   if (newTransaction) {
@@ -131,10 +125,10 @@ export function execute(state, op, newTransaction) {
     } else {
       transaction++;
       history = discardFutureOps(history, transaction);
-      history = addOp(history, transaction, createOpEnriched(state, op));
+      history = addOp(history, transaction, enrich(state, op));
     }
   } else {
-    history = addOp(history, transaction, createOpEnriched(state, op));
+    history = addOp(history, transaction, enrich(state, op));
   }
 
   return {
@@ -153,7 +147,7 @@ export function undo(state) {
 
   const operations = state.history
     .filter((op) => op.transaction === transaction)
-    .map((op) => createOpInverse(op))
+    .map((op) => inverse(op))
     .reverse();
 
   if (operations.length === 0) {
@@ -205,7 +199,7 @@ export function canMergeOp(history, transaction, op) {
   }
 
   const lastOp = lastOps[0];
-  if (lastOp.type !== OpTypes.SET) {
+  if (lastOp.op !== OpTypes.SET) {
     return false;
   }
 
@@ -260,7 +254,7 @@ export function applyOp(obj, op) {
 function applyOpArray(obj, op) {
   const index = op.path[0];
   if (op.path.length === 1) {
-    switch (op.type) {
+    switch (op.op) {
       case OpTypes.SET:
         return arraySet(obj, index, op.value);
       case OpTypes.ADD:
@@ -274,7 +268,7 @@ function applyOpArray(obj, op) {
       case OpTypes.SWAP:
         return arraySwapRanges(obj, index);
       default:
-        throw new Error(`Unknown operation type '${op.type}'`);
+        throw new Error(`Unknown operation op '${op.op}'`);
     }
   } else {
     return arraySet(obj, index, applyOp(obj[index], createOpDescend(op)));
@@ -287,7 +281,7 @@ function applyOpObject(obj, op) {
     if (Object.prototype.hasOwnProperty.call(obj, property)) {
       if (op.path && op.path[0] === property) {
         if (op.path.length === 1) {
-          if (op.type === OpTypes.SET || op.type === OpTypes.ADD) {
+          if (op.op === OpTypes.SET || op.op === OpTypes.ADD) {
             result[property] = op.value;
           }
         } else {
@@ -298,7 +292,7 @@ function applyOpObject(obj, op) {
       }
     }
   }
-  if (op.type === OpTypes.ADD && op.path.length === 1) {
+  if (op.op === OpTypes.ADD && op.path.length === 1) {
     result[op.path[0]] = op.value;
   }
   return result;
