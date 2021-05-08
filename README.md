@@ -2,7 +2,7 @@
 
 Patcher is a library for transforming immutable object trees using simple operations with undo history and transactions.
 
-## patch
+## Patch
 
 The `patch` function is the heart of patcher. It applies given operations
 to the given state and returns a new state. The `patch` function's parameter
@@ -30,25 +30,25 @@ All operations contain a path that describes where in the object tree the operat
 
 ## Example
 
-For example, adding a range of values to an array nested in an object:
+For example, inserting a value to an array at position 1 nested in an object:
 
 ```
-import { patch } from "@mroc/patcher";
+import { opAdd, patch } from "@mroc/patcher";
 
-const state = {
-    values: [1, 2, 3]
-};
+const state = { values: [1, 2, 3] };
 
-const nextState = patch(state, opAddRange(["values", 1], [4, 5]));
+const op = opAdd(["values", 1], 4);
+
+const nextState = patch(state, op);
 ```
 
 Results in the following new state. Note: All operations and the current transaction is stored in the state.
 
 ```
 {
-    values: [1, 2, 4, 5, 3],
+    values: [1, 2, 4, 3],
     history: [
-        { op: "add_range", path: ["values", 1], value: [4, 5], transaction: 0 }
+        { op: "add", path: ["values", 1], value: 4, transaction: 0 }
     ],
     transaction: 0
 }
