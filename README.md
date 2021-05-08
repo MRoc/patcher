@@ -25,8 +25,11 @@ Basic operations include:
 * deleteRange: `opDeleteRange` removes an range for an array. Note that the last path element must be *range*.
 * swapRanges: `opSwapRangesRanges` swaps two ranges in an array. Note that the last path elements must be a array of two *range*s.
 
-All operations contain a path that describes where in the object tree the operation should be applied.
-If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
+Notes:
+
+* All operations contain a path that describes where in the object tree the operation should be applied.
+* If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
+* Multiple succeeding `replace` operations might be grouped in a single history step if the last transaction only consistes out of a single `replace` on the same path.
 
 
 ## Examples
@@ -55,7 +58,8 @@ Results in the following new state. Note: All operations and the current transac
 }
 ```
 
-Patch also supports multiple operations at once:
+Patch also supports multiple operations at once. In that case, all operations will end
+up in the same transaction:
 
 ```
 import { patch } from "@mroc/patcher";
