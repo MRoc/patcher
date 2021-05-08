@@ -1,8 +1,8 @@
 import {
   opAdd,
   opAddRange,
-  opSet,
-  opSetEnriched,
+  opReplace,
+  opReplaceEnriched,
   opDelete,
   opDeleteEnriched,
   opDeleteRange,
@@ -18,19 +18,19 @@ import {
 } from "./index.js";
 
 describe("enrich", () => {
-  test("With single set stores previous value", () => {
+  test("With single replace stores previous value", () => {
     const obj = [{ a: 0 }];
-    const op = opSet([0, "a"], 1, 2, 3);
+    const op = opReplace([0, "a"], 1, 2, 3);
     const opEnriched = enrich(obj, op);
     expect(opEnriched.before).toBe(0);
   });
-  test("With multiple sets stores previous values", () => {
+  test("With multiple replace stores previous values", () => {
     const obj = [{ a: 0 }, { a: 1 }];
-    const op = [opSet([0, "a"], 2, 2), opSet([1, "a"], 3, 2)];
+    const op = [opReplace([0, "a"], 2, 2), opReplace([1, "a"], 3, 2)];
     const opEnriched = enrich(obj, op);
     expect(opEnriched).toStrictEqual([
-      opSetEnriched([0, "a"], 0, 2, 2),
-      opSetEnriched([1, "a"], 1, 3, 2),
+      opReplaceEnriched([0, "a"], 0, 2, 2),
+      opReplaceEnriched([1, "a"], 1, 3, 2),
     ]);
   });
   test("With single delete stores previous value", () => {
@@ -60,10 +60,10 @@ describe("inverse", () => {
       opDeleteRange(["a", { index: 1, length: 2 }])
     );
   });
-  test("With set returns inverse set", () => {
-    const op = opSetEnriched(["a", "b"], "c", "d");
+  test("With replace returns inverse replace", () => {
+    const op = opReplaceEnriched(["a", "b"], "c", "d");
     const inverseOp = inverse(op);
-    expect(inverseOp).toStrictEqual(opSetEnriched(["a", "b"], "d", "c"));
+    expect(inverseOp).toStrictEqual(opReplaceEnriched(["a", "b"], "d", "c"));
   });
   test("With delete returns inverse add", () => {
     const op = opDeleteEnriched(["a", "b"], "X");
@@ -103,42 +103,42 @@ describe("canMergeOp", () => {
   test("With no last operations returns false", () => {
     const history = [];
     const transaction = -1;
-    const operation = opSet(["a"], 0, 1);
+    const operation = opReplace(["a"], 0, 1);
     const canMerge = canMergeOp(history, transaction, operation);
     expect(canMerge).toBe(false);
   });
-  test("With last operation not being set returns false", () => {
+  test("With last operation not being replace returns false", () => {
     const history = [opAdd(["a", "value"], "b", 0)];
     const transaction = 0;
-    const operation = opSet(["a"], 0, 1);
+    const operation = opReplace(["a"], 0, 1);
     const canMerge = canMergeOp(history, transaction, operation);
     expect(canMerge).toBe(false);
   });
   test("With last operation path not equal returns false", () => {
-    const history = [opSet(["b"], 1, 0)];
+    const history = [opReplace(["b"], 1, 0)];
     const transaction = 0;
-    const operation = opSet(["a"], 0, 1);
+    const operation = opReplace(["a"], 0, 1);
     const canMerge = canMergeOp(history, transaction, operation);
     expect(canMerge).toBe(false);
   });
   test("With two operations returns false", () => {
-    const history = [opSet(["b"], 1, 0)];
+    const history = [opReplace(["b"], 1, 0)];
     const transaction = 0;
-    const operation = [opSet(["a"], 0, 1), opSet(["b"], 0, 1)];
+    const operation = [opReplace(["a"], 0, 1), opReplace(["b"], 0, 1)];
     const canMerge = canMergeOp(history, transaction, operation);
     expect(canMerge).toBe(false);
   });
-  test("With set on same path and single op returns true", () => {
-    const history = [opSet(["b", "c"], 1, 0)];
+  test("With replace on same path and single op returns true", () => {
+    const history = [opReplace(["b", "c"], 1, 0)];
     const transaction = 0;
-    const operation = opSet(["b", "c"], 2, 0);
+    const operation = opReplace(["b", "c"], 2, 0);
     const canMerge = canMergeOp(history, transaction, operation);
     expect(canMerge).toBe(true);
   });
-  test("With set on same path in array and single op returns true", () => {
-    const history = [opSet(["b", "c"], 1, 0)];
+  test("With replace on same path in array and single op returns true", () => {
+    const history = [opReplace(["b", "c"], 1, 0)];
     const transaction = 0;
-    const operation = [opSet(["b", "c"], 2, 0)];
+    const operation = [opReplace(["b", "c"], 2, 0)];
     const canMerge = canMergeOp(history, transaction, operation);
     expect(canMerge).toBe(true);
   });
@@ -146,19 +146,19 @@ describe("canMergeOp", () => {
 
 describe("mergeLastOp", () => {
   test("With last operation merge-able, overwrites value", () => {
-    const history = [opSet(["a", "b"], 1, 0)];
-    const operation = opSet(["a", "b"], 2, 0);
+    const history = [opReplace(["a", "b"], 1, 0)];
+    const operation = opReplace(["a", "b"], 2, 0);
     const mergedHistory = mergeLastOp(history, operation);
-    expect(mergedHistory).toStrictEqual([opSet(["a", "b"], 2, 0)]);
+    expect(mergedHistory).toStrictEqual([opReplace(["a", "b"], 2, 0)]);
   });
 });
 
 describe("discardFutureOps", () => {
   test("With history removes operations from the future", () => {
     const history = [
-      opSet(["a", "b"], 1, 0),
-      opSet(["a", "b"], 2, 1),
-      opSet(["a", "b"], 3, 2),
+      opReplace(["a", "b"], 1, 0),
+      opReplace(["a", "b"], 2, 1),
+      opReplace(["a", "b"], 3, 2),
     ];
     const newHistory = discardFutureOps(history, 1);
     expect(newHistory).toStrictEqual([history[0]]);
@@ -167,24 +167,24 @@ describe("discardFutureOps", () => {
 
 describe("addOp", () => {
   test("With history adds single operation with transaction", () => {
-    const history = [opSet(["a"], 1, 0)];
-    const operation = opSet(["b"], 2);
+    const history = [opReplace(["a"], 1, 0)];
+    const operation = opReplace(["b"], 2);
     const transaction = 5;
     const newHistory = addOp(history, transaction, operation);
     expect(newHistory).toStrictEqual([
-      opSet(["a"], 1, 0),
-      opSet(["b"], 2, 5),
+      opReplace(["a"], 1, 0),
+      opReplace(["b"], 2, 5),
     ]);
   });
   test("With history adds multiple operations with transaction", () => {
-    const history = [opSet(["a"], 1, 0)];
-    const operation = [opSet(["b"], 2, 0), opSet(["c"], 3, 0)];
+    const history = [opReplace(["a"], 1, 0)];
+    const operation = [opReplace(["b"], 2, 0), opReplace(["c"], 3, 0)];
     const transaction = 5;
     const newHistory = addOp(history, transaction, operation);
     expect(newHistory).toStrictEqual([
-      opSet(["a"], 1, 0),
-      opSet(["b"], 2, 5),
-      opSet(["c"], 3, 5),
+      opReplace(["a"], 1, 0),
+      opReplace(["b"], 2, 5),
+      opReplace(["c"], 3, 5),
     ]);
   });
 });
@@ -220,24 +220,24 @@ describe("applyOp", () => {
     const clone = applyOp(input, opAddRange([1], [4, 5]));
     expect(clone).toStrictEqual([1, 4, 5, 2, 3]);
   });
-  test("With set on object sets property", () => {
+  test("With replace on object replaces property", () => {
     const input = { a: 1, b: 2 };
-    const clone = applyOp(input, opSet(["a"], 3));
+    const clone = applyOp(input, opReplace(["a"], 3));
     expect(clone).toStrictEqual({ a: 3, b: 2 });
   });
-  test("With set on nested object sets property", () => {
+  test("With replace on nested object replaces property", () => {
     const input = { a: { b: { c: 1 } }, b: 2 };
-    const clone = applyOp(input, opSet(["a", "b", "c"], 3));
+    const clone = applyOp(input, opReplace(["a", "b", "c"], 3));
     expect(clone).toStrictEqual({ a: { b: { c: 3 } }, b: 2 });
   });
-  test("With set on array changes single value", () => {
+  test("With replace on array changes single value", () => {
     const input = [1, 2, 3];
-    const clone = applyOp(input, opSet([1], 4));
+    const clone = applyOp(input, opReplace([1], 4));
     expect(clone).toStrictEqual([1, 4, 3]);
   });
-  test("With set on nested array changes single value", () => {
+  test("With replace on nested array changes single value", () => {
     const input = [{ a: 1 }, { b: 2 }, { c: 3 }];
-    const clone = applyOp(input, opSet([1, "b"], 4));
+    const clone = applyOp(input, opReplace([1, "b"], 4));
     expect(clone).toStrictEqual([{ a: 1 }, { b: 4 }, { c: 3 }]);
   });
   test("With delete on object deletes property", () => {
@@ -311,8 +311,8 @@ describe("applyOp", () => {
   test("With multiple operations applies after each other", () => {
     const input = { a: 1, b: 2 };
     const clone = applyOp(input, [
-      opSet(["a"], 3),
-      opSet(["b"], 4),
+      opReplace(["a"], 3),
+      opReplace(["b"], 4),
     ]);
     expect(clone).toStrictEqual({ a: 3, b: 4 });
   });

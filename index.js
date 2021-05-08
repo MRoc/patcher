@@ -2,7 +2,7 @@
 const OpTypes = {
   ADD: "add",
   ADD_RANGE: "add_range",
-  SET: "replace",
+  REPLACE: "replace",
   DEL: "remove",
   DEL_RANGE: "remove_range",
   SWAP: "swap",
@@ -16,8 +16,8 @@ export function opAddRange(path, value, transaction) {
   return { op: OpTypes.ADD_RANGE, transaction, path, value };
 }
 
-export function opSet(path, value, transaction) {
-  return { op: OpTypes.SET, transaction, path, value };
+export function opReplace(path, value, transaction) {
+  return { op: OpTypes.REPLACE, transaction, path, value };
 }
 
 export function opDelete(path, transaction) {
@@ -38,7 +38,7 @@ export function enrich(obj, op) {
   }
 
   if (
-    op.op === OpTypes.SET ||
+    op.op === OpTypes.REPLACE ||
     op.op === OpTypes.DEL ||
     op.op === OpTypes.DEL_RANGE
   ) {
@@ -61,8 +61,8 @@ function getValue(obj, path) {
   }
 }
 
-export function opSetEnriched(path, before, value, transaction) {
-  return { ...opSet(path, value, transaction), before };
+export function opReplaceEnriched(path, before, value, transaction) {
+  return { ...opReplace(path, value, transaction), before };
 }
 
 export function opDeleteEnriched(path, before, transaction) {
@@ -82,8 +82,8 @@ export function inverse(op) {
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
       ]);
-    case OpTypes.SET:
-      return opSetEnriched(op.path, op.value, op.before);
+    case OpTypes.REPLACE:
+      return opReplaceEnriched(op.path, op.value, op.before);
     case OpTypes.DEL:
       return opAdd(op.path, op.before);
     case OpTypes.DEL_RANGE:
@@ -199,7 +199,7 @@ export function canMergeOp(history, transaction, op) {
   }
 
   const lastOp = lastOps[0];
-  if (lastOp.op !== OpTypes.SET) {
+  if (lastOp.op !== OpTypes.REPLACE) {
     return false;
   }
 
@@ -255,8 +255,8 @@ function applyOpArray(obj, op) {
   const index = op.path[0];
   if (op.path.length === 1) {
     switch (op.op) {
-      case OpTypes.SET:
-        return arraySet(obj, index, op.value);
+      case OpTypes.REPLACE:
+        return arrayReplace(obj, index, op.value);
       case OpTypes.ADD:
         return arrayAdd(obj, index, op.value);
       case OpTypes.ADD_RANGE:
@@ -271,7 +271,7 @@ function applyOpArray(obj, op) {
         throw new Error(`Unknown operation op '${op.op}'`);
     }
   } else {
-    return arraySet(obj, index, applyOp(obj[index], createOpDescend(op)));
+    return arrayReplace(obj, index, applyOp(obj[index], createOpDescend(op)));
   }
 }
 
@@ -281,7 +281,7 @@ function applyOpObject(obj, op) {
     if (Object.prototype.hasOwnProperty.call(obj, property)) {
       if (op.path && op.path[0] === property) {
         if (op.path.length === 1) {
-          if (op.op === OpTypes.SET || op.op === OpTypes.ADD) {
+          if (op.op === OpTypes.REPLACE || op.op === OpTypes.ADD) {
             result[property] = op.value;
           }
         } else {
@@ -298,7 +298,7 @@ function applyOpObject(obj, op) {
   return result;
 }
 
-function arraySet(array, index, value) {
+function arrayReplace(array, index, value) {
   return [...array.slice(0, index), value, ...array.slice(index + 1)];
 }
 
