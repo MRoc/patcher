@@ -1,6 +1,7 @@
 # Patcher
 
-Patcher is a library for transforming immutable object trees using simple operations with undo history and transactions.
+Patcher is a library for transforming immutable object trees using simple
+operations with undo history and transactions.
 
 ## Patch
 
@@ -22,15 +23,15 @@ Basic operations include:
 * replace: `opReplace` replaces an element in an arrray or sets an property on an object.
 * delete: `opDelete` removes an element from an array or an property from an object.
 * deleteRange: `opDeleteRange` removes an range for an array. Note that the last path element must be *range*.
-* swap: `opSwap` swaps two ranges in an array. Note that the last path elements must be a array of two *range*s.
+* swapRanges: `opSwapRangesRanges` swaps two ranges in an array. Note that the last path elements must be a array of two *range*s.
 
-Note: If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
+All operations contain a path that describes where in the object tree the operation should be applied.
+If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
 
-All operations contain a path that describes where in the object tree the operation should be applied. 
 
-## Example
+## Examples
 
-For example, inserting a value to an array at position 1 nested in an object:
+Inserting a value to an array at position 1 nested in an object:
 
 ```
 import { opAdd, patch } from "@mroc/patcher";
@@ -69,13 +70,24 @@ const nextState = patch(state, [
 ]);
 ```
 
-## undo/redo
+## Undo and Redo
 
-Undoing and redo all operations from last transaction is as easy as:
+Using `undo` and `redo`, the previous transaction can be reverted or an undone be replayed:
 
 ```
-import { undo } from "@mroc/patcher";
+import { undo, redo } from "@mroc/patcher";
 
-const previousState = undo(nextState);
-const nextState2 = redo(previousState);
+const state1 = undo(state0);
+const state2 = redo(state1);
+
+// state1 equals state 0
 ```
+
+## Concepts
+
+All operations can be undone by creating a inverse operation using the `inverse` function.
+This is usually done internally in `undo` and `redo`. An interesting fact is that certain
+operations need previous state to be undone, for example `replace` because obviously after
+replace, the previous value is lost. For that, operations are *enriched* before placed
+into the history using the `enrich` function. This function adds a `previous` property
+to those operations who need it.

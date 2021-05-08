@@ -5,7 +5,7 @@ const OpTypes = {
   REPLACE: "replace",
   DEL: "remove",
   DEL_RANGE: "remove_range",
-  SWAP: "swap",
+  SWAP_RANGES: "swap_ranges",
 };
 
 export function opAdd(path, value, transaction) {
@@ -28,8 +28,8 @@ export function opDeleteRange(path, transaction) {
   return { op: OpTypes.DEL_RANGE, transaction, path };
 }
 
-export function opSwap(path, transaction) {
-  return { op: OpTypes.SWAP, transaction, path };
+export function opSwapRanges(path, transaction) {
+  return { op: OpTypes.SWAP_RANGES, transaction, path };
 }
 
 export function enrich(obj, op) {
@@ -91,7 +91,7 @@ export function inverse(op) {
         [...arraySkipLast(op.path), arrayLast(op.path).index],
         op.previous
       );
-    case OpTypes.SWAP: {
+    case OpTypes.SWAP_RANGES: {
       const [r00, r10] = arraySort(
         arrayLast(op.path),
         (a, b) => a.index - b.index
@@ -104,7 +104,7 @@ export function inverse(op) {
         index: r00.index,
         length: r10.length,
       };
-      return opSwap([...op.path.slice(0, -1), [r11, r01]]);
+      return opSwapRanges([...op.path.slice(0, -1), [r11, r01]]);
     }
     default:
       throw new Error(`Unknown operation op '${op.op}'`);
@@ -265,7 +265,7 @@ function applyOpArray(obj, op) {
         return arrayDelete(obj, index);
       case OpTypes.DEL_RANGE:
         return arrayDeleteRange(obj, index);
-      case OpTypes.SWAP:
+      case OpTypes.SWAP_RANGES:
         return arraySwapRanges(obj, index);
       default:
         throw new Error(`Unknown operation op '${op.op}'`);

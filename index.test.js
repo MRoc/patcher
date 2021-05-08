@@ -7,7 +7,7 @@ import {
   opDeleteEnriched,
   opDeleteRange,
   opDeleteRangeEnriched,
-  opSwap,
+  opSwapRanges,
   enrich,
   inverse,
   canMergeOp,
@@ -79,7 +79,7 @@ describe("inverse", () => {
     expect(inverseOp).toStrictEqual(opAdd(["a", 1], ["X", "Y"]));
   });
   test("With swap returns inverse swap", () => {
-    const op = opSwap([
+    const op = opSwapRanges([
       "a",
       [
         { index: 1, length: 2 },
@@ -88,7 +88,7 @@ describe("inverse", () => {
     ]);
     const inverseOp = inverse(op);
 
-    const expectedOp = opSwap([
+    const expectedOp = opSwapRanges([
       "a",
       [
         { index: 1, length: 1 },
@@ -272,7 +272,7 @@ describe("applyOp", () => {
     const input = [1, 2, 3, 4, 5];
     const clone = applyOp(
       input,
-      opSwap([
+      opSwapRanges([
         [
           { index: 1, length: 1 },
           { index: 3, length: 1 },
@@ -285,7 +285,7 @@ describe("applyOp", () => {
     const input = [1, 2, 3, 4, 5];
     const clone = applyOp(
       input,
-      opSwap([
+      opSwapRanges([
         [
           { index: 0, length: 2 },
           { index: 3, length: 2 },
@@ -298,7 +298,7 @@ describe("applyOp", () => {
     const input = { arr: [1, 2, 3, 4, 5] };
     const clone = applyOp(
       input,
-      opSwap([
+      opSwapRanges([
         "arr",
         [
           { index: 0, length: 2 },
