@@ -1,13 +1,8 @@
-# patcher
-
-Immutable state patching in JS
-
-# Description
+# Patcher
 
 Patcher is a library for transforming immutable object trees using simple operations with undo history and transactions.
 
 # Example
-
 
 ## patch
 
