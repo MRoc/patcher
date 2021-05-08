@@ -42,7 +42,7 @@ export function enrich(obj, op) {
     op.op === OpTypes.DEL ||
     op.op === OpTypes.DEL_RANGE
   ) {
-    return { ...op, before: getValue(obj, op.path) };
+    return { ...op, previous: getValue(obj, op.path) };
   }
 
   return op;
@@ -61,16 +61,16 @@ function getValue(obj, path) {
   }
 }
 
-export function opReplaceEnriched(path, before, value, transaction) {
-  return { ...opReplace(path, value, transaction), before };
+export function opReplaceEnriched(path, previous, value, transaction) {
+  return { ...opReplace(path, value, transaction), previous };
 }
 
-export function opDeleteEnriched(path, before, transaction) {
-  return { ...opDelete(path, transaction), before };
+export function opDeleteEnriched(path, previous, transaction) {
+  return { ...opDelete(path, transaction), previous };
 }
 
-export function opDeleteRangeEnriched(path, before, transaction) {
-  return { ...opDeleteRange(path, transaction), before };
+export function opDeleteRangeEnriched(path, previous, transaction) {
+  return { ...opDeleteRange(path, transaction), previous };
 }
 
 export function inverse(op) {
@@ -83,13 +83,13 @@ export function inverse(op) {
         { index: arrayLast(op.path), length: op.value.length },
       ]);
     case OpTypes.REPLACE:
-      return opReplaceEnriched(op.path, op.value, op.before);
+      return opReplaceEnriched(op.path, op.value, op.previous);
     case OpTypes.DEL:
-      return opAdd(op.path, op.before);
+      return opAdd(op.path, op.previous);
     case OpTypes.DEL_RANGE:
       return opAdd(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
-        op.before
+        op.previous
       );
     case OpTypes.SWAP: {
       const [r00, r10] = arraySort(

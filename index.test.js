@@ -22,7 +22,7 @@ describe("enrich", () => {
     const obj = [{ a: 0 }];
     const op = opReplace([0, "a"], 1, 2, 3);
     const opEnriched = enrich(obj, op);
-    expect(opEnriched.before).toBe(0);
+    expect(opEnriched.previous).toBe(0);
   });
   test("With multiple replace stores previous values", () => {
     const obj = [{ a: 0 }, { a: 1 }];
@@ -37,13 +37,13 @@ describe("enrich", () => {
     const obj = [{ a: "A" }];
     const op = opDelete([0, "a"]);
     const opEnriched = enrich(obj, op);
-    expect(opEnriched.before).toBe("A");
+    expect(opEnriched.previous).toBe("A");
   });
   test("With single delete range stores previous value", () => {
     const obj = [1, 2, 3, 4];
     const op = opDeleteRange([{ index: 1, length: 2 }]);
     const opEnriched = enrich(obj, op);
-    expect(opEnriched.before).toEqual([2, 3]);
+    expect(opEnriched.previous).toEqual([2, 3]);
   });
 });
 
