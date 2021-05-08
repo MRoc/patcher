@@ -46,7 +46,8 @@ const op = opAdd(["values", 1], 4);
 const nextState = patch(state, op);
 ```
 
-Results in the following new state. Note: All operations and the current transaction is stored in the state.
+The previous code results in the following new state. Note how the operation and current
+transaction was added to the state.
 
 ```
 {
