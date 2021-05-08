@@ -2,19 +2,33 @@
 
 Patcher is a library for transforming immutable object trees using simple operations with undo history and transactions.
 
-# Example
-
 ## patch
 
-The patch function is the heart of patcher. It takes a state, one or more operations, and if a new transaction should be created:
+The `patch` function is the heart of patcher. It applies given operations
+to the given state and returns a new state. The `patch` function's parameter
+`newTransaction` defines, if a new transaction should be started. All
+operations in one transaction can later be undone/redone with one step:
 
 ```
 function patch(state, op, newTransaction)
 ```
 
-Basic operations include: add, addRange, replace, delete, deleteRange, swap.
-All operations contain a path that describes where in the object tree the
-operation should be applied.
+## Operations
+
+Basic operations include:
+
+* add: `opAdd` adds a value to an array or a property to an object.
+* addRange: `opAddRange` inserts an array of values into another array.
+* replace: `opReplace` replaces an element in an arrray or sets an property on an object.
+* delete: `opDelete` removes an element from an array or an property from an object.
+* deleteRange: `opDeleteRange` removes an range for an array. Note that the last path element must be *range*.
+* swap: `opSwap` swaps two ranges in an array. Note that the last path elements must be a array of two *range*s.
+
+Note: If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
+
+All operations contain a path that describes where in the object tree the operation should be applied. 
+
+## Example
 
 For example, adding a range of values to an array nested in an object:
 
