@@ -1,6 +1,6 @@
 # Patcher
 
-Patcher is a library for transforming immutable object trees using simple
+Patcher is a library for transforming immutable object trees using basic
 operations with undo history and transactions.
 
 ## Patch
@@ -27,7 +27,7 @@ Basic operations include:
 
 Notes:
 
-* All operations contain a path that describes where in the object tree the operation should be applied.
+* All operations contain a path that describes where in the object tree the operation should be applied. Path is an array of strings that is used to descend into the object tree.
 * If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
 * Multiple succeeding `replace` operations might be grouped in a single transaction if the last transaction only consistes out of a single `replace` on the same path.
 
@@ -36,31 +36,7 @@ Notes:
 
 ### Add
 
-Inserting a value to an array at position 1 nested in an object:
-
-```
-import { opAdd, patch } from "@mroc/patcher";
-
-const state = { values: [1, 2, 3] };
-const op = opAdd(["values", 1], 4);
-const nextState = patch(state, op);
-
-// { values: [1, 2, 4, 3] }
-```
-
-Note that operations and current transaction is added to state:
-
-```
-{
-    values: [1, 2, 4, 3],
-    history: [
-        { op: "add", path: ["values", 1], value: 4, transaction: 0 }
-    ],
-    transaction: 0
-}
-```
-
-Insert can also add properties to objects:
+Add property to object:
 
 ```
 import { opAdd, patch } from "@mroc/patcher";
@@ -68,6 +44,29 @@ import { opAdd, patch } from "@mroc/patcher";
 const state = patch ({ }, opAdd(["property"], "value");
 
 // { "property": "value" }
+```
+
+
+Inserting value into array:
+
+```
+import { opAdd, patch } from "@mroc/patcher";
+
+const state = patch([1, 2, 3], opAdd([1], 4));
+
+// [1, 2, 4, 3]
+```
+
+Note: Operations and current transaction is added to state:
+
+```
+{
+    property: "value",
+    history: [
+        { op: "add", path: ["property"], value: "value", transaction: 0 }
+    ],
+    transaction: 0
+}
 ```
 
 ### Add Range
@@ -86,17 +85,6 @@ const nextState = patch(state, op);
 
 ### Replace
 
-Replaces an element in an arrray:
-
-```
-import { opReplace, patch } from "@mroc/patcher";
-
-const state = patch([1, 2, 3], opReplace([1], 5));
-
-// [ 1, 5, 3]
-```
-
-
 Replace a property value in an object:
 
 ```
@@ -107,19 +95,17 @@ const state = patch({ a: 2 }, opReplace(["a"], 5));
 // { a: 5 }
 ```
 
+Replaces an element in an arrray:
+
+```
+import { opReplace, patch } from "@mroc/patcher";
+
+const state = patch([1, 2, 3], opReplace([1], 5));
+
+// [ 1, 5, 3]
+```
 
 ### Delete
-
-Delete an element from an arrray:
-
-```
-import { opDelete, patch } from "@mroc/patcher";
-
-const state = patch([4, 5, 6], opDelete([1]));
-
-// [4, 6]
-```
-
 
 Delete a property from an object:
 
@@ -129,6 +115,16 @@ import { opDelete, patch } from "@mroc/patcher";
 const state = patch({ a: 1, b: 2 }, opDelete(["a"]));
 
 // { b: 2 }
+```
+
+Delete an element from an arrray:
+
+```
+import { opDelete, patch } from "@mroc/patcher";
+
+const state = patch([4, 5, 6], opDelete([1]));
+
+// [4, 6]
 ```
 
 ### Delete Range
@@ -197,4 +193,4 @@ This is usually done internally in `undo` and `redo`. An interesting fact is tha
 operations need previous state to be undone, for example `replace` because obviously after
 replace, the previous value is lost. For that, operations are *enriched* before placed
 into the history using the `enrich` function. This function adds a `previous` property
-to those operations who need it.
+to all operations that require it.

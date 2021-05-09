@@ -8,6 +8,7 @@ import {
   opDeleteRange,
   opDeleteRangeEnriched,
   opSwapRanges,
+  patch,
   enrich,
   inverse,
   canMergeOp,
@@ -320,5 +321,14 @@ describe("applyOp", () => {
     const input = [1, 2];
     const clone = applyOp(input, [opAdd([2], 3), opAdd([3], 4)]);
     expect(clone).toStrictEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("patch", () => {
+  test("With array modifies and adds to history", () => {
+    const state = [1, 2, 3];
+    const op = opAdd([1], 5);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 5, 2, 3]);
   });
 });

@@ -115,9 +115,12 @@ export function emptyHistory() {
   return [];
 }
 
+export const defaultTransaction = -1;
+
 export function patch(state, op, newTransaction) {
-  let history = state.history;
-  let transaction = state.transaction;
+  let history = state.history || emptyHistory();
+  let transaction =
+    state.transaction === undefined ? defaultTransaction : state.transaction;
   if (newTransaction) {
     if (canMergeOp(history, transaction, op)) {
       history = discardFutureOps(history, transaction + 1);
@@ -131,6 +134,13 @@ export function patch(state, op, newTransaction) {
     history = addOp(history, transaction, enrich(state, op));
   }
 
+  if (Array.isArray(state)) {
+    let result = applyOp(state, op);
+    result.history = history;
+    result.transaction = transaction;
+    return result;
+  }
+
   return {
     ...applyOp(state, op),
     history: history,
@@ -139,7 +149,7 @@ export function patch(state, op, newTransaction) {
 }
 
 export function hasUndo(state) {
-  return state.history.length > 0 && state.transaction > -1;
+  return state.history.length > 0 && state.transaction > defaultTransaction;
 }
 
 export function undo(state) {
