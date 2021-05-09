@@ -29,10 +29,12 @@ Notes:
 
 * All operations contain a path that describes where in the object tree the operation should be applied.
 * If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
-* Multiple succeeding `replace` operations might be grouped in a single history step if the last transaction only consistes out of a single `replace` on the same path.
+* Multiple succeeding `replace` operations might be grouped in a single transaction if the last transaction only consistes out of a single `replace` on the same path.
 
 
 ## Examples
+
+### Add
 
 Inserting a value to an array at position 1 nested in an object:
 
@@ -40,14 +42,13 @@ Inserting a value to an array at position 1 nested in an object:
 import { opAdd, patch } from "@mroc/patcher";
 
 const state = { values: [1, 2, 3] };
-
 const op = opAdd(["values", 1], 4);
-
 const nextState = patch(state, op);
+
+// { values: [1, 2, 4, 3] }
 ```
 
-The previous code results in the following new state. Note how the operation and current
-transaction was added to the state.
+Note that operations and current transaction is added to state:
 
 ```
 {
@@ -58,6 +59,107 @@ transaction was added to the state.
     transaction: 0
 }
 ```
+
+Insert can also add properties to objects:
+
+```
+import { opAdd, patch } from "@mroc/patcher";
+
+const state = patch ({ }, opAdd(["property"], "value");
+
+// { "property": "value" }
+```
+
+### Add Range
+
+Inserts an array of values into another array:
+
+```
+import { opAddRange, patch } from "@mroc/patcher";
+
+const state = { values: [1, 2, 3] };
+const op = opAddRange(["values", 1], [4, 5]);
+const nextState = patch(state, op);
+
+// [1, 2, 4, 5, 3]
+```
+
+### Replace
+
+Replaces an element in an arrray:
+
+```
+import { opReplace, patch } from "@mroc/patcher";
+
+const state = patch([1, 2, 3], opReplace([1], 5));
+
+// [ 1, 5, 3]
+```
+
+
+Replace a property value in an object:
+
+```
+import { opReplace, patch } from "@mroc/patcher";
+
+const state = patch({ a: 2 }, opReplace(["a"], 5));
+
+// { a: 5 }
+```
+
+
+### Delete
+
+Delete an element from an arrray:
+
+```
+import { opDelete, patch } from "@mroc/patcher";
+
+const state = patch([4, 5, 6], opDelete([1]));
+
+// [4, 6]
+```
+
+
+Delete a property from an object:
+
+```
+import { opDelete, patch } from "@mroc/patcher";
+
+const state = patch({ a: 1, b: 2 }, opDelete(["a"]));
+
+// { b: 2 }
+```
+
+### Delete Range
+
+Deletes a range from an array:
+
+```
+import { opDeleteRange, patch } from "@mroc/patcher";
+
+const state = [1, 2, 3, 4, 5];
+const op = opDeleteRange([{ index: 1, length: 2 }]);
+const nextState = patch(state, op);
+
+// [1, 4, 5]
+```
+
+### Swap Ranges
+
+Swaps two ranges from an array. Note the last part of path is an array of two ranges:
+
+```
+import { opSwapRanges, patch } from "@mroc/patcher";
+
+const state = [1, 2, 3, 4, 5];
+const op = opSwapRanges([[{ index: 1, length: 2 }, { index: 3, length: 2 }]]);
+const nextState = patch(state, op);
+
+// [1, 4, 5, 2, 3]
+```
+
+### Multiple operations at once
 
 Patch also supports multiple operations at once. In that case, all operations will end
 up in the same transaction:
