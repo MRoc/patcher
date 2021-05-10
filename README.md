@@ -28,11 +28,12 @@ Basic operations include:
 * replace: `opReplace` replaces an element in an arrray or sets an property on an object.
 * remove: `opRemove` removes an element from an array or an property from an object.
 * removeRange: `opRemoveRange` removes an range for an array. Note that the last path element must be *range*.
-* moveRange: `opMoveRange` moves a range in an array. Note that the last path elements must be a array of one source *range*s and one destination *number*.
+* moveRange: `opMoveRange` moves a range in an array. Note that the last path element must be a array of one source *range*s and one destination *number*.
 
 Notes:
 
 * All operations contain a path that describes where in the object tree the operation should be applied. Path is an array of strings that is used to descend into the object tree.
+* A path can contain out of strings, numbers and sometimes objects. Strings are used to descend into an object's properties. Numbers are used to descend into an array index. Objects are used when ranges need to be specified.
 * If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
 * Multiple succeeding `replace` operations might be grouped in a single transaction if the last transaction only consistes out of a single `replace` on the same path.
 
@@ -191,6 +192,21 @@ const state2 = redo(state1);
 // state1 equals state 0
 ```
 
+To check if `undo` and `redo` is available, `hasUndo` and `hasRedo` can be used:
+
+```
+import { hasUndo, hasRedo, undo } from "@mroc/patcher";
+
+if (hasUndo(state0)) {
+    return undo(state0);
+}
+
+if (hasRedo(state0)) {
+    return redo(state0);
+}
+```
+
+
 ## Concepts
 
 **Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
@@ -199,3 +215,21 @@ certain operations need previous state to be undone, for example `replace` becau
 after replace, the previous value is lost. For that, operations are *enriched* before placed
 into the history using the `enrich` function. This function adds a `previous` property to
 all operations that require it.
+
+## Patcher with Redux
+
+Example reducer using *Patcher*:
+
+```
+import { opAdd, patch, undo, redo } from "@mroc/patcher";
+
+export const reducer = function (state = initialState, action) {
+  switch (action.type) {
+    case ActionTypes.ADD:
+      return patch(state, opAdd(["values", 1], "Text"));
+    case ActionTypes.UNDO:
+        return undo(state);
+    case ActionTypes.REDO:
+        return redo(state);
+}
+```
