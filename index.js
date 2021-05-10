@@ -5,7 +5,6 @@ const OpTypes = {
   REPLACE: "replace",
   REMOVE: "remove",
   REMOVE_RANGE: "remove_range",
-  SWAP_RANGES: "swap_ranges",
   MOVE_RANGE: "move_range",
 };
 
@@ -27,10 +26,6 @@ export function opRemove(path, transaction) {
 
 export function opRemoveRange(path, transaction) {
   return { op: OpTypes.REMOVE_RANGE, transaction, path };
-}
-
-export function opSwapRanges(path, transaction) {
-  return { op: OpTypes.SWAP_RANGES, transaction, path };
 }
 
 export function opMoveRange(path, transaction) {
@@ -96,21 +91,6 @@ export function inverse(op) {
         [...arraySkipLast(op.path), arrayLast(op.path).index],
         op.previous
       );
-    case OpTypes.SWAP_RANGES: {
-      const [r00, r10] = arraySort(
-        arrayLast(op.path),
-        (a, b) => a.index - b.index
-      );
-      const r01 = {
-        index: r10.index - r00.length + r10.length,
-        length: r00.length,
-      };
-      const r11 = {
-        index: r00.index,
-        length: r10.length,
-      };
-      return opSwapRanges([...op.path.slice(0, -1), [r11, r01]]);
-    }
     case OpTypes.MOVE_RANGE: {
       const [r0, p0] = arrayLast(op.path);
       let r1, p1;
@@ -290,8 +270,6 @@ function applyOpArray(obj, op) {
         return arrayRemove(obj, index);
       case OpTypes.REMOVE_RANGE:
         return arrayRemoveRange(obj, index);
-      case OpTypes.SWAP_RANGES:
-        return arraySwapRanges(obj, index);
       case OpTypes.MOVE_RANGE:
         return arrayMoveRange(obj, index);
       default:
@@ -352,17 +330,6 @@ function arrayRemove(array, index) {
     throw new Error(`To remove, index must be a number!`);
   }
   return [...array.slice(0, index), ...array.slice(index + 1)];
-}
-
-function arraySwapRanges(array, ranges) {
-  const [r0, r1] = arraySort(ranges, (a, b) => a.index - b.index);
-  return [
-    ...array.slice(0, r0.index),
-    ...array.slice(r1.index, r1.index + r1.length),
-    ...array.slice(r0.index + r0.length, r1.index),
-    ...array.slice(r0.index, r0.index + r0.length),
-    ...array.slice(r1.index + r1.length, array.length),
-  ];
 }
 
 function arrayMoveRange(array, ranges) {

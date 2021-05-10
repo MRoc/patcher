@@ -7,7 +7,6 @@ import {
   opRemoveEnriched,
   opRemoveRange,
   opRemoveRangeEnriched,
-  opSwapRanges,
   opMoveRange,
   patch,
   undo,
@@ -82,25 +81,6 @@ describe("inverse", () => {
     );
     const inverseOp = inverse(op);
     expect(inverseOp).toStrictEqual(opAddRange(["a", 1], ["X", "Y"]));
-  });
-  test("With swap-ranges returns inverse swap-ranges", () => {
-    const op = opSwapRanges([
-      "a",
-      [
-        { index: 1, length: 2 },
-        { index: 3, length: 1 },
-      ],
-    ]);
-    const inverseOp = inverse(op);
-
-    const expectedOp = opSwapRanges([
-      "a",
-      [
-        { index: 1, length: 1 },
-        { index: 2, length: 2 },
-      ],
-    ]);
-    expect(inverseOp).toStrictEqual(expectedOp);
   });
   test("With move-range to right returns inverse move-range", () => {
     const op = opMoveRange(["a", [{ index: 1, length: 2 }, 4]]);
@@ -261,32 +241,6 @@ describe("applyOp", () => {
     const input = [1, 2, 3, 4, 5];
     const clone = applyOp(input, opRemoveRange([{ index: 1, length: 2 }]));
     expect(clone).toStrictEqual([1, 4, 5]);
-  });
-  test("With swap-ranges of two single value", () => {
-    const input = [1, 2, 3, 4, 5];
-    const clone = applyOp(
-      input,
-      opSwapRanges([
-        [
-          { index: 1, length: 1 },
-          { index: 3, length: 1 },
-        ],
-      ])
-    );
-    expect(clone).toStrictEqual([1, 4, 3, 2, 5]);
-  });
-  test("With swap-ranges of two ranges", () => {
-    const input = [1, 2, 3, 4, 5];
-    const clone = applyOp(
-      input,
-      opSwapRanges([
-        [
-          { index: 0, length: 2 },
-          { index: 3, length: 2 },
-        ],
-      ])
-    );
-    expect(clone).toStrictEqual([4, 5, 3, 1, 2]);
   });
   test("With move-range to right", () => {
     const input = [1, 2, 3, 4, 5, 6];

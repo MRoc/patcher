@@ -23,7 +23,7 @@ Basic operations include:
 * replace: `opReplace` replaces an element in an arrray or sets an property on an object.
 * remove: `opRemove` removes an element from an array or an property from an object.
 * removeRange: `opRemoveRange` removes an range for an array. Note that the last path element must be *range*.
-* swapRanges: `opSwapRangesRanges` swaps two ranges in an array. Note that the last path elements must be a array of two *range*s.
+* moveRange: `opMoveRange` moves a range in an array. Note that the last path elements must be a array of one source *range*s and one destination *number*.
 
 Notes:
 
@@ -141,18 +141,18 @@ const nextState = patch(state, op);
 // [1, 4, 5]
 ```
 
-### Swap Ranges
+### Move Range
 
-Swaps two ranges from an array. Note the last part of path is an array of two ranges:
+Move range in an array:
 
 ```
-import { opSwapRanges, patch } from "@mroc/patcher";
+import { opMoveRange, patch } from "@mroc/patcher";
 
 const state = [1, 2, 3, 4, 5];
-const op = opSwapRanges([[{ index: 1, length: 2 }, { index: 3, length: 2 }]]);
+const op = opMoveRange([[{ index: 1, length: 2 }, 4]]);
 const nextState = patch(state, op);
 
-// [1, 4, 5, 2, 3]
+// [1, 4, 2, 3, 5]
 ```
 
 ### Multiple operations at once
