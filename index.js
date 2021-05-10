@@ -87,7 +87,7 @@ export function inverse(op) {
     case OpTypes.REMOVE:
       return opAdd(op.path, op.previous);
     case OpTypes.REMOVE_RANGE:
-      return opAdd(
+      return opAddRange(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
         op.previous
       );

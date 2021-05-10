@@ -80,7 +80,7 @@ describe("inverse", () => {
       ["X", "Y"]
     );
     const inverseOp = inverse(op);
-    expect(inverseOp).toStrictEqual(opAdd(["a", 1], ["X", "Y"]));
+    expect(inverseOp).toStrictEqual(opAddRange(["a", 1], ["X", "Y"]));
   });
   test("With swap returns inverse swap", () => {
     const op = opSwapRanges([
@@ -348,6 +348,14 @@ describe("patch", () => {
     expect(clone.history.length).toBe(1);
     expect(clone.transaction).toBe(0);
   });
+  test("With add-range to array, starts transaction, adds to history, adds elements", () => {
+    const state = [1, 2, 3];
+    const op = opAddRange([1], [4, 5]);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 4, 5, 2, 3]);
+    expect(clone.history.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
   test("With remove from object, starts transaction, adds to history, removes property", () => {
     const state = { a: 2 };
     const op = opRemove(["a"]);
@@ -370,6 +378,14 @@ describe("patch", () => {
     const op = opRemove([2]);
     const clone = patch(state, op);
     expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
+    expect(clone.history.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With remove-range from array, starts transaction, adds to history, removes elements", () => {
+    const state = [1, 2, 5, 3];
+    const op = opRemoveRange([{ index: 1, length: 2 }]);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 3]);
     expect(clone.history.length).toBe(1);
     expect(clone.transaction).toBe(0);
   });
@@ -418,8 +434,13 @@ describe("undo", () => {
     const clone = undo(state);
     expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
   });
+  test("With add-range to array,removes elements and decrements transaction", () => {
+    const state = combine([1, 4, 5, 2, 3], [opAddRange([1], [4, 5], 0)], 0);
+    const clone = undo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
+  });
   test("With remove from object, adds property and decrements transaction", () => {
-    const state = combine({ }, [opRemoveEnriched(["a"], 2, 0)], 0);
+    const state = combine({}, [opRemoveEnriched(["a"], 2, 0)], 0);
     const clone = undo(state);
     expect(clone).toStrictEqual({
       a: 2,
@@ -429,6 +450,15 @@ describe("undo", () => {
   });
   test("With remove from array, adds element and decrements transaction", () => {
     const state = combine([1, 2, 3], [opRemoveEnriched([2], 5, 0)], 0);
+    const clone = undo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 5, 3]);
+  });
+  test("With remove-range from array, adds elements and decrements transaction", () => {
+    const state = combine(
+      [1, 3],
+      [opRemoveRangeEnriched([{ index: 1, length: 2 }], [2, 5], 0)],
+      0
+    );
     const clone = undo(state);
     expect(clone.slice(0)).toStrictEqual([1, 2, 5, 3]);
   });
@@ -450,7 +480,7 @@ describe("undo", () => {
 
 describe("redo", () => {
   test("With add to object, adds property and increments transaction", () => {
-    const state = combine({ }, [opAdd(["a"], 2, 0)], -1);
+    const state = combine({}, [opAdd(["a"], 2, 0)], -1);
     const clone = redo(state);
     expect(clone).toStrictEqual({
       a: 2,
@@ -458,10 +488,15 @@ describe("redo", () => {
       transaction: 0,
     });
   });
-  test("With add to array, removes element and increments transaction", () => {
+  test("With add to array, add element and increments transaction", () => {
     const state = combine([1, 2, 3], [opAdd([2], 4, 0)], -1);
     const clone = redo(state);
     expect(clone.slice(0)).toStrictEqual([1, 2, 4, 3]);
+  });
+  test("With add-range to array, adds elements and increments transaction", () => {
+    const state = combine([1, 2, 3], [opAddRange([1], [4, 5], 0)], -1);
+    const clone = redo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 4, 5, 2, 3]);
   });
   test("With remove from object, removes property and increments transaction", () => {
     const state = combine({ a: 2 }, [opRemoveEnriched(["a"], 2, 0)], -1);
