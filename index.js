@@ -6,6 +6,7 @@ const OpTypes = {
   REMOVE: "remove",
   REMOVE_RANGE: "remove_range",
   SWAP_RANGES: "swap_ranges",
+  MOVE_RANGE: "move_range",
 };
 
 export function opAdd(path, value, transaction) {
@@ -30,6 +31,10 @@ export function opRemoveRange(path, transaction) {
 
 export function opSwapRanges(path, transaction) {
   return { op: OpTypes.SWAP_RANGES, transaction, path };
+}
+
+export function opMoveRange(path, transaction) {
+  return { op: OpTypes.MOVE_RANGE, transaction, path };
 }
 
 export function enrich(obj, op) {
@@ -134,10 +139,7 @@ export function patch(state, op, newTransaction) {
     history = addOp(history, transaction, enrich(state, op));
   }
 
-  return combine(
-    applyOp(state, op),
-    history,
-    transaction);
+  return combine(applyOp(state, op), history, transaction);
 }
 
 export function combine(state, history, transaction) {
@@ -170,10 +172,7 @@ export function undo(state) {
     throw new Error(`Nothing to undo! (transaction=${transaction})`);
   }
 
-  return combine(
-    applyOp(state, operations),
-    state.history,
-    transaction - 1);
+  return combine(applyOp(state, operations), state.history, transaction - 1);
 }
 
 export function hasRedo(state) {
@@ -194,10 +193,7 @@ export function redo(state) {
     throw new Error(`Nothing to redo! (transaction=${transaction})`);
   }
 
-  return combine(
-    applyOp(state, operations),
-    state.history,
-    transaction);
+  return combine(applyOp(state, operations), state.history, transaction);
 }
 
 export function canMergeOp(history, transaction, op) {
@@ -283,6 +279,8 @@ function applyOpArray(obj, op) {
         return arrayRemoveRange(obj, index);
       case OpTypes.SWAP_RANGES:
         return arraySwapRanges(obj, index);
+      case OpTypes.MOVE_RANGE:
+        return arrayMoveRange(obj, index);
       default:
         throw new Error(`Unknown operation op '${op.op}'`);
     }
@@ -352,6 +350,30 @@ function arraySwapRanges(array, ranges) {
     ...array.slice(r0.index, r0.index + r0.length),
     ...array.slice(r1.index + r1.length, array.length),
   ];
+}
+
+function arrayMoveRange(array, ranges) {
+  const [range, pos] = ranges;
+
+  if (pos >= range.index && pos < range.index.length) {
+    throw new Error(`Can't move range inside itself!`);
+  }
+
+  if (range.index < pos) {
+    return [
+      ...array.slice(0, range.index),
+      ...array.slice(range.index + range.length, pos),
+      ...array.slice(range.index, range.index + range.length),
+      ...array.slice(pos, array.length),
+    ];
+  } else {
+    return [
+      ...array.slice(0, pos),
+      ...array.slice(range.index, range.index + range.length),
+      ...array.slice(pos, range.index),
+      ...array.slice(range.index + range.length, array.length),
+    ];
+  }
 }
 
 function arraySort(array, func) {

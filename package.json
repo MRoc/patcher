@@ -4,7 +4,7 @@
   "description": "Immutable state transformations with undo/redo history",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest --watch"
   },
   "repository": {
     "type": "git",

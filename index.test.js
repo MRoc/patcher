@@ -8,6 +8,7 @@ import {
   opRemoveRange,
   opRemoveRangeEnriched,
   opSwapRanges,
+  opMoveRange,
   patch,
   undo,
   redo,
@@ -82,7 +83,7 @@ describe("inverse", () => {
     const inverseOp = inverse(op);
     expect(inverseOp).toStrictEqual(opAddRange(["a", 1], ["X", "Y"]));
   });
-  test("With swap returns inverse swap", () => {
+  test("With swap-ranges returns inverse swap-ranges", () => {
     const op = opSwapRanges([
       "a",
       [
@@ -199,7 +200,7 @@ describe("applyOp", () => {
     const clone = applyOp(input);
     expect(clone).toStrictEqual(input);
   });
-  test("With add to object adds proptery", () => {
+  test("With add to object adds property", () => {
     const input = { a: 1, b: 2 };
     const clone = applyOp(input, opAdd(["c"], 3));
     expect(clone).toStrictEqual({ a: 1, b: 2, c: 3 });
@@ -214,7 +215,7 @@ describe("applyOp", () => {
     const clone = applyOp(input, opAdd([1], 4));
     expect(clone).toStrictEqual([1, 4, 2, 3]);
   });
-  test("With add nested array inserts into array", () => {
+  test("With add to nested array inserts into array", () => {
     const input = [{ a: [1, 2] }, { b: [3, 4] }];
     const clone = applyOp(input, opAdd([0, "a", 1], 5));
     expect(clone).toStrictEqual([{ a: [1, 5, 2] }, { b: [3, 4] }]);
@@ -229,47 +230,27 @@ describe("applyOp", () => {
     const clone = applyOp(input, opReplace(["a"], 3));
     expect(clone).toStrictEqual({ a: 3, b: 2 });
   });
-  test("With replace on nested object replaces property", () => {
-    const input = { a: { b: { c: 1 } }, b: 2 };
-    const clone = applyOp(input, opReplace(["a", "b", "c"], 3));
-    expect(clone).toStrictEqual({ a: { b: { c: 3 } }, b: 2 });
-  });
   test("With replace on array changes single value", () => {
     const input = [1, 2, 3];
     const clone = applyOp(input, opReplace([1], 4));
     expect(clone).toStrictEqual([1, 4, 3]);
-  });
-  test("With replace on nested array changes single value", () => {
-    const input = [{ a: 1 }, { b: 2 }, { c: 3 }];
-    const clone = applyOp(input, opReplace([1, "b"], 4));
-    expect(clone).toStrictEqual([{ a: 1 }, { b: 4 }, { c: 3 }]);
   });
   test("With remove on object deletes property", () => {
     const input = { a: 1, b: 2 };
     const clone = applyOp(input, opRemove(["a"]));
     expect(clone).toStrictEqual({ b: 2 });
   });
-  test("With remove on nested object deletes property", () => {
-    const input = { a: { b: { c: 1 } }, b: 2 };
-    const clone = applyOp(input, opRemove(["a", "b", "c"]));
-    expect(clone).toStrictEqual({ a: { b: {} }, b: 2 });
-  });
   test("With remove on array removes single value", () => {
     const input = [1, 2, 3];
     const clone = applyOp(input, opRemove([1]));
     expect(clone).toStrictEqual([1, 3]);
-  });
-  test("With remove on nested array removes single value", () => {
-    const input = [{ a: [1, 2] }, { b: [3, 4] }];
-    const clone = applyOp(input, opRemove([0, "a", 1], 2));
-    expect(clone).toStrictEqual([{ a: [1] }, { b: [3, 4] }]);
   });
   test("With remove-range from array removes multiple values", () => {
     const input = [1, 2, 3, 4, 5];
     const clone = applyOp(input, opRemoveRange([{ index: 1, length: 2 }]));
     expect(clone).toStrictEqual([1, 4, 5]);
   });
-  test("With swap of two single value", () => {
+  test("With swap-ranges of two single value", () => {
     const input = [1, 2, 3, 4, 5];
     const clone = applyOp(
       input,
@@ -282,7 +263,7 @@ describe("applyOp", () => {
     );
     expect(clone).toStrictEqual([1, 4, 3, 2, 5]);
   });
-  test("With swap of two ranges", () => {
+  test("With swap-ranges of two ranges", () => {
     const input = [1, 2, 3, 4, 5];
     const clone = applyOp(
       input,
@@ -295,19 +276,21 @@ describe("applyOp", () => {
     );
     expect(clone).toStrictEqual([4, 5, 3, 1, 2]);
   });
-  test("With swap of two ranges in object", () => {
-    const input = { arr: [1, 2, 3, 4, 5] };
+  test("With move-range to right", () => {
+    const input = [1, 2, 3, 4, 5, 6];
     const clone = applyOp(
       input,
-      opSwapRanges([
-        "arr",
-        [
-          { index: 0, length: 2 },
-          { index: 3, length: 2 },
-        ],
-      ])
+      opMoveRange([[{ index: 1, length: 2 }, 4]])
     );
-    expect(clone).toStrictEqual({ arr: [4, 5, 3, 1, 2] });
+    expect(clone).toStrictEqual([1, 4, 2, 3, 5, 6]);
+  });
+  test("With move-range to left", () => {
+    const input = [1, 4, 2, 3, 5, 6];
+    const clone = applyOp(
+      input,
+      opMoveRange([[{ index: 2, length: 2 }, 1]])
+    );
+    expect(clone).toStrictEqual([1, 2, 3, 4, 5, 6]);
   });
   test("With multiple operations applies after each other", () => {
     const input = { a: 1, b: 2 };
@@ -331,14 +314,6 @@ describe("patch", () => {
       history: [opAdd(["a"], 2, 0)],
       transaction: 0,
     });
-  });
-  test("With add to empty array, starts transaction, adds to history, adds element", () => {
-    const state = [];
-    const op = opAdd([0], 5);
-    const clone = patch(state, op);
-    expect(clone.slice(0)).toStrictEqual([5]);
-    expect(clone.history.length).toBe(1);
-    expect(clone.transaction).toBe(0);
   });
   test("With add to array, starts transaction, adds to history, adds element", () => {
     const state = [1, 2, 3];
@@ -364,14 +339,6 @@ describe("patch", () => {
       history: [opRemoveEnriched(["a"], 2, 0)],
       transaction: 0,
     });
-  });
-  test("With remove from scalar array, starts transaction, adds to history, removes element", () => {
-    const state = [5];
-    const op = opRemove([0]);
-    const clone = patch(state, op);
-    expect(clone.slice(0)).toStrictEqual([]);
-    expect(clone.history.length).toBe(1);
-    expect(clone.transaction).toBe(0);
   });
   test("With remove from array, starts transaction, adds to history, removes element", () => {
     const state = [1, 2, 5, 3];
