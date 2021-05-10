@@ -3,14 +3,17 @@ import {
   opAddRange,
   opReplace,
   opReplaceEnriched,
-  opDelete,
-  opDeleteEnriched,
-  opDeleteRange,
-  opDeleteRangeEnriched,
+  opRemove,
+  opRemoveEnriched,
+  opRemoveRange,
+  opRemoveRangeEnriched,
   opSwapRanges,
   patch,
+  undo,
+  redo,
   enrich,
   inverse,
+  combine,
   canMergeOp,
   applyOp,
   mergeLastOp,
@@ -34,31 +37,31 @@ describe("enrich", () => {
       opReplaceEnriched([1, "a"], 1, 3, 2),
     ]);
   });
-  test("With single delete stores previous value", () => {
+  test("With single remove stores previous value", () => {
     const obj = [{ a: "A" }];
-    const op = opDelete([0, "a"]);
+    const op = opRemove([0, "a"]);
     const opEnriched = enrich(obj, op);
     expect(opEnriched.previous).toBe("A");
   });
-  test("With single delete range stores previous value", () => {
+  test("With single remove range stores previous value", () => {
     const obj = [1, 2, 3, 4];
-    const op = opDeleteRange([{ index: 1, length: 2 }]);
+    const op = opRemoveRange([{ index: 1, length: 2 }]);
     const opEnriched = enrich(obj, op);
     expect(opEnriched.previous).toEqual([2, 3]);
   });
 });
 
 describe("inverse", () => {
-  test("With add returns inverse delete", () => {
+  test("With add returns inverse remove", () => {
     const op = opAdd(["a", "b"], "c");
     const inverseOp = inverse(op);
-    expect(inverseOp).toStrictEqual(opDelete(["a", "b"]));
+    expect(inverseOp).toStrictEqual(opRemove(["a", "b"]));
   });
-  test("With add-range returns inverse delete-range", () => {
+  test("With add-range returns inverse remove-range", () => {
     const op = opAddRange(["a", 1], ["c", "d"]);
     const inverseOp = inverse(op);
     expect(inverseOp).toStrictEqual(
-      opDeleteRange(["a", { index: 1, length: 2 }])
+      opRemoveRange(["a", { index: 1, length: 2 }])
     );
   });
   test("With replace returns inverse replace", () => {
@@ -66,13 +69,13 @@ describe("inverse", () => {
     const inverseOp = inverse(op);
     expect(inverseOp).toStrictEqual(opReplaceEnriched(["a", "b"], "d", "c"));
   });
-  test("With delete returns inverse add", () => {
-    const op = opDeleteEnriched(["a", "b"], "X");
+  test("With remove returns inverse add", () => {
+    const op = opRemoveEnriched(["a", "b"], "X");
     const inverseOp = inverse(op);
     expect(inverseOp).toStrictEqual(opAdd(["a", "b"], "X"));
   });
-  test("With delete-range returns inverse add", () => {
-    const op = opDeleteRangeEnriched(
+  test("With remove-range returns inverse add", () => {
+    const op = opRemoveRangeEnriched(
       ["a", { index: 1, length: 2 }],
       ["X", "Y"]
     );
@@ -241,32 +244,29 @@ describe("applyOp", () => {
     const clone = applyOp(input, opReplace([1, "b"], 4));
     expect(clone).toStrictEqual([{ a: 1 }, { b: 4 }, { c: 3 }]);
   });
-  test("With delete on object deletes property", () => {
+  test("With remove on object deletes property", () => {
     const input = { a: 1, b: 2 };
-    const clone = applyOp(input, opDelete(["a"]));
+    const clone = applyOp(input, opRemove(["a"]));
     expect(clone).toStrictEqual({ b: 2 });
   });
-  test("With delete on nested object deletes property", () => {
+  test("With remove on nested object deletes property", () => {
     const input = { a: { b: { c: 1 } }, b: 2 };
-    const clone = applyOp(input, opDelete(["a", "b", "c"]));
+    const clone = applyOp(input, opRemove(["a", "b", "c"]));
     expect(clone).toStrictEqual({ a: { b: {} }, b: 2 });
   });
-  test("With delete on array removes single value", () => {
+  test("With remove on array removes single value", () => {
     const input = [1, 2, 3];
-    const clone = applyOp(input, opDelete([1]));
+    const clone = applyOp(input, opRemove([1]));
     expect(clone).toStrictEqual([1, 3]);
   });
-  test("With delete on nested array removes single value", () => {
+  test("With remove on nested array removes single value", () => {
     const input = [{ a: [1, 2] }, { b: [3, 4] }];
-    const clone = applyOp(input, opDelete([0, "a", 1], 2));
+    const clone = applyOp(input, opRemove([0, "a", 1], 2));
     expect(clone).toStrictEqual([{ a: [1] }, { b: [3, 4] }]);
   });
-  test("With delete-range from array removes multiple values", () => {
+  test("With remove-range from array removes multiple values", () => {
     const input = [1, 2, 3, 4, 5];
-    const clone = applyOp(
-      input,
-      opDeleteRange([{ index: 1, length: 2 }])
-    );
+    const clone = applyOp(input, opRemoveRange([{ index: 1, length: 2 }]));
     expect(clone).toStrictEqual([1, 4, 5]);
   });
   test("With swap of two single value", () => {
@@ -311,10 +311,7 @@ describe("applyOp", () => {
   });
   test("With multiple operations applies after each other", () => {
     const input = { a: 1, b: 2 };
-    const clone = applyOp(input, [
-      opReplace(["a"], 3),
-      opReplace(["b"], 4),
-    ]);
+    const clone = applyOp(input, [opReplace(["a"], 3), opReplace(["b"], 4)]);
     expect(clone).toStrictEqual({ a: 3, b: 4 });
   });
   test("With succeeding adds adds one after another", () => {
@@ -325,10 +322,172 @@ describe("applyOp", () => {
 });
 
 describe("patch", () => {
-  test("With array modifies and adds to history", () => {
+  test("With add to object, starts transaction, adds to history, adds property", () => {
+    const state = {};
+    const op = opAdd(["a"], 2);
+    const clone = patch(state, op);
+    expect(clone).toStrictEqual({
+      a: 2,
+      history: [opAdd(["a"], 2, 0)],
+      transaction: 0,
+    });
+  });
+  test("With add to empty array, starts transaction, adds to history, adds element", () => {
+    const state = [];
+    const op = opAdd([0], 5);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([5]);
+    expect(clone.history.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With add to array, starts transaction, adds to history, adds element", () => {
     const state = [1, 2, 3];
     const op = opAdd([1], 5);
     const clone = patch(state, op);
     expect(clone.slice(0)).toStrictEqual([1, 5, 2, 3]);
+    expect(clone.history.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With remove from object, starts transaction, adds to history, removes property", () => {
+    const state = { a: 2 };
+    const op = opRemove(["a"]);
+    const clone = patch(state, op);
+    expect(clone).toStrictEqual({
+      history: [opRemoveEnriched(["a"], 2, 0)],
+      transaction: 0,
+    });
+  });
+  test("With remove from scalar array, starts transaction, adds to history, removes element", () => {
+    const state = [5];
+    const op = opRemove([0]);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([]);
+    expect(clone.history.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With remove from array, starts transaction, adds to history, removes element", () => {
+    const state = [1, 2, 5, 3];
+    const op = opRemove([2]);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
+    expect(clone.history.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  // TODO This case is not implemented yet and differs from JSON patch RFC
+  // test("With replace on object empty, starts transaction, adds to history, creates property", () => {
+  //   const state = { };
+  //   const op = opReplace(["a"], 3);
+  //   const clone = patch(state, op);
+  //   expect(clone).toStrictEqual({
+  //     a: 3,
+  //     history: [opReplaceEnriched(["a"], undefined, 3, 0)],
+  //     transaction: 0,
+  //   });
+  // });
+  test("With replace on object, starts transaction, adds to history, updates property", () => {
+    const state = { a: 2 };
+    const op = opReplace(["a"], 3);
+    const clone = patch(state, op);
+    expect(clone).toStrictEqual({
+      a: 3,
+      history: [opReplaceEnriched(["a"], 2, 3, 0)],
+      transaction: 0,
+    });
+  });
+  test("With replace on array, starts transaction, adds to history, updates element", () => {
+    const state = [1, 2, 5, 3];
+    const op = opReplace([2], 4);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 4, 3]);
+    expect(clone.history.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+});
+
+describe("undo", () => {
+  test("With add to object, removes property and decrements transaction", () => {
+    const state = combine({ a: 2 }, [opAdd(["a"], 2, 0)], 0);
+    const clone = undo(state);
+    expect(clone).toStrictEqual({
+      history: [opAdd(["a"], 2, 0)],
+      transaction: -1,
+    });
+  });
+  test("With add to array, removes element and decrements transaction", () => {
+    const state = combine([1, 2, 5, 3], [opAdd([2], 5, 0)], 0);
+    const clone = undo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
+  });
+  test("With remove from object, adds property and decrements transaction", () => {
+    const state = combine({ }, [opRemoveEnriched(["a"], 2, 0)], 0);
+    const clone = undo(state);
+    expect(clone).toStrictEqual({
+      a: 2,
+      history: [opRemoveEnriched(["a"], 2, 0)],
+      transaction: -1,
+    });
+  });
+  test("With remove from array, adds element and decrements transaction", () => {
+    const state = combine([1, 2, 3], [opRemoveEnriched([2], 5, 0)], 0);
+    const clone = undo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 5, 3]);
+  });
+  test("With replace on object, updates property and decrements transaction", () => {
+    const state = combine({ a: 3 }, [opReplaceEnriched(["a"], 2, 3, 0)], 0);
+    const clone = undo(state);
+    expect(clone).toStrictEqual({
+      a: 2,
+      history: [opReplaceEnriched(["a"], 2, 3, 0)],
+      transaction: -1,
+    });
+  });
+  test("With replace on array, updates element and decrements transaction", () => {
+    const state = combine([1, 4, 3], [opReplaceEnriched([1], 2, 4, 0)], 0);
+    const clone = undo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
+  });
+});
+
+describe("redo", () => {
+  test("With add to object, adds property and increments transaction", () => {
+    const state = combine({ }, [opAdd(["a"], 2, 0)], -1);
+    const clone = redo(state);
+    expect(clone).toStrictEqual({
+      a: 2,
+      history: [opAdd(["a"], 2, 0)],
+      transaction: 0,
+    });
+  });
+  test("With add to array, removes element and increments transaction", () => {
+    const state = combine([1, 2, 3], [opAdd([2], 4, 0)], -1);
+    const clone = redo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 4, 3]);
+  });
+  test("With remove from object, removes property and increments transaction", () => {
+    const state = combine({ a: 2 }, [opRemoveEnriched(["a"], 2, 0)], -1);
+    const clone = redo(state);
+    expect(clone).toStrictEqual({
+      history: [opRemoveEnriched(["a"], 2, 0)],
+      transaction: 0,
+    });
+  });
+  test("With remove from array, removes element and increments transaction", () => {
+    const state = combine([1, 2, 4, 3], [opRemoveEnriched([2], 4, 0)], -1);
+    const clone = redo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
+  });
+  test("With replace on object, updates property and increments transaction", () => {
+    const state = combine({ a: 2 }, [opReplaceEnriched(["a"], 2, 3, 0)], -1);
+    const clone = redo(state);
+    expect(clone).toStrictEqual({
+      a: 3,
+      history: [opReplaceEnriched(["a"], 2, 3, 0)],
+      transaction: 0,
+    });
+  });
+  test("With replace on array, updates element and increments transaction", () => {
+    const state = combine([1, 2, 3], [opReplaceEnriched([1], 2, 5, 0)], -1);
+    const clone = redo(state);
+    expect(clone.slice(0)).toStrictEqual([1, 5, 3]);
   });
 });

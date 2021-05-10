@@ -3,8 +3,8 @@ const OpTypes = {
   ADD: "add",
   ADD_RANGE: "add_range",
   REPLACE: "replace",
-  DEL: "remove",
-  DEL_RANGE: "remove_range",
+  REMOVE: "remove",
+  REMOVE_RANGE: "remove_range",
   SWAP_RANGES: "swap_ranges",
 };
 
@@ -20,12 +20,12 @@ export function opReplace(path, value, transaction) {
   return { op: OpTypes.REPLACE, transaction, path, value };
 }
 
-export function opDelete(path, transaction) {
-  return { op: OpTypes.DEL, transaction, path };
+export function opRemove(path, transaction) {
+  return { op: OpTypes.REMOVE, transaction, path };
 }
 
-export function opDeleteRange(path, transaction) {
-  return { op: OpTypes.DEL_RANGE, transaction, path };
+export function opRemoveRange(path, transaction) {
+  return { op: OpTypes.REMOVE_RANGE, transaction, path };
 }
 
 export function opSwapRanges(path, transaction) {
@@ -39,8 +39,8 @@ export function enrich(obj, op) {
 
   if (
     op.op === OpTypes.REPLACE ||
-    op.op === OpTypes.DEL ||
-    op.op === OpTypes.DEL_RANGE
+    op.op === OpTypes.REMOVE ||
+    op.op === OpTypes.REMOVE_RANGE
   ) {
     return { ...op, previous: getValue(obj, op.path) };
   }
@@ -65,28 +65,28 @@ export function opReplaceEnriched(path, previous, value, transaction) {
   return { ...opReplace(path, value, transaction), previous };
 }
 
-export function opDeleteEnriched(path, previous, transaction) {
-  return { ...opDelete(path, transaction), previous };
+export function opRemoveEnriched(path, previous, transaction) {
+  return { ...opRemove(path, transaction), previous };
 }
 
-export function opDeleteRangeEnriched(path, previous, transaction) {
-  return { ...opDeleteRange(path, transaction), previous };
+export function opRemoveRangeEnriched(path, previous, transaction) {
+  return { ...opRemoveRange(path, transaction), previous };
 }
 
 export function inverse(op) {
   switch (op.op) {
     case OpTypes.ADD:
-      return opDelete(op.path);
+      return opRemove(op.path);
     case OpTypes.ADD_RANGE:
-      return opDeleteRange([
+      return opRemoveRange([
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
       ]);
     case OpTypes.REPLACE:
       return opReplaceEnriched(op.path, op.value, op.previous);
-    case OpTypes.DEL:
+    case OpTypes.REMOVE:
       return opAdd(op.path, op.previous);
-    case OpTypes.DEL_RANGE:
+    case OpTypes.REMOVE_RANGE:
       return opAdd(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
         op.previous
@@ -121,7 +121,7 @@ export function patch(state, op, newTransaction) {
   let history = state.history || emptyHistory();
   let transaction =
     state.transaction === undefined ? defaultTransaction : state.transaction;
-  if (newTransaction) {
+  if (newTransaction || transaction === defaultTransaction) {
     if (canMergeOp(history, transaction, op)) {
       history = discardFutureOps(history, transaction + 1);
       history = mergeLastOp(history, op);
@@ -134,15 +134,21 @@ export function patch(state, op, newTransaction) {
     history = addOp(history, transaction, enrich(state, op));
   }
 
+  return combine(
+    applyOp(state, op),
+    history,
+    transaction);
+}
+
+export function combine(state, history, transaction) {
   if (Array.isArray(state)) {
-    let result = applyOp(state, op);
-    result.history = history;
-    result.transaction = transaction;
-    return result;
+    state.history = history;
+    state.transaction = transaction;
+    return state;
   }
 
   return {
-    ...applyOp(state, op),
+    ...state,
     history: history,
     transaction: transaction,
   };
@@ -164,10 +170,10 @@ export function undo(state) {
     throw new Error(`Nothing to undo! (transaction=${transaction})`);
   }
 
-  return {
-    ...applyOp(state, operations),
-    transaction: transaction - 1,
-  };
+  return combine(
+    applyOp(state, operations),
+    state.history,
+    transaction - 1);
 }
 
 export function hasRedo(state) {
@@ -188,10 +194,10 @@ export function redo(state) {
     throw new Error(`Nothing to redo! (transaction=${transaction})`);
   }
 
-  return {
-    ...applyOp(state, operations),
-    transaction: transaction,
-  };
+  return combine(
+    applyOp(state, operations),
+    state.history,
+    transaction);
 }
 
 export function canMergeOp(history, transaction, op) {
@@ -271,10 +277,10 @@ function applyOpArray(obj, op) {
         return arrayAdd(obj, index, op.value);
       case OpTypes.ADD_RANGE:
         return arrayAddRange(obj, index, op.value);
-      case OpTypes.DEL:
-        return arrayDelete(obj, index);
-      case OpTypes.DEL_RANGE:
-        return arrayDeleteRange(obj, index);
+      case OpTypes.REMOVE:
+        return arrayRemove(obj, index);
+      case OpTypes.REMOVE_RANGE:
+        return arrayRemoveRange(obj, index);
       case OpTypes.SWAP_RANGES:
         return arraySwapRanges(obj, index);
       default:
@@ -320,9 +326,9 @@ function arrayAdd(array, index, value) {
   return [...array.slice(0, index), value, ...array.slice(index)];
 }
 
-function arrayDeleteRange(array, index) {
+function arrayRemoveRange(array, index) {
   if (typeof index !== "object") {
-    throw new Error(`For delete a range, index must be an object!`);
+    throw new Error(`To remove a range, index must be an object!`);
   }
   return [
     ...array.slice(0, index.index),
@@ -330,9 +336,9 @@ function arrayDeleteRange(array, index) {
   ];
 }
 
-function arrayDelete(array, index) {
+function arrayRemove(array, index) {
   if (typeof index !== "number") {
-    throw new Error(`For delete, index must be a number!`);
+    throw new Error(`To remove, index must be a number!`);
   }
   return [...array.slice(0, index), ...array.slice(index + 1)];
 }

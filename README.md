@@ -21,8 +21,8 @@ Basic operations include:
 * add: `opAdd` adds a value to an array or a property to an object.
 * addRange: `opAddRange` inserts an array of values into another array.
 * replace: `opReplace` replaces an element in an arrray or sets an property on an object.
-* delete: `opDelete` removes an element from an array or an property from an object.
-* deleteRange: `opDeleteRange` removes an range for an array. Note that the last path element must be *range*.
+* remove: `opRemove` removes an element from an array or an property from an object.
+* removeRange: `opRemoveRange` removes an range for an array. Note that the last path element must be *range*.
 * swapRanges: `opSwapRangesRanges` swaps two ranges in an array. Note that the last path elements must be a array of two *range*s.
 
 Notes:
@@ -105,37 +105,37 @@ const state = patch([1, 2, 3], opReplace([1], 5));
 // [ 1, 5, 3]
 ```
 
-### Delete
+### Remove
 
-Delete a property from an object:
+Remove a property from an object:
 
 ```
-import { opDelete, patch } from "@mroc/patcher";
+import { opRemove, patch } from "@mroc/patcher";
 
-const state = patch({ a: 1, b: 2 }, opDelete(["a"]));
+const state = patch({ a: 1, b: 2 }, opRemove(["a"]));
 
 // { b: 2 }
 ```
 
-Delete an element from an arrray:
+Remove an element from an arrray:
 
 ```
-import { opDelete, patch } from "@mroc/patcher";
+import { opRemove, patch } from "@mroc/patcher";
 
-const state = patch([4, 5, 6], opDelete([1]));
+const state = patch([4, 5, 6], opRemove([1]));
 
 // [4, 6]
 ```
 
-### Delete Range
+### Remove Range
 
-Deletes a range from an array:
+Removes a range of values from an array specified by index and length:
 
 ```
-import { opDeleteRange, patch } from "@mroc/patcher";
+import { opRemoveRange, patch } from "@mroc/patcher";
 
 const state = [1, 2, 3, 4, 5];
-const op = opDeleteRange([{ index: 1, length: 2 }]);
+const op = opRemoveRange([{ index: 1, length: 2 }]);
 const nextState = patch(state, op);
 
 // [1, 4, 5]
@@ -169,7 +169,7 @@ const state = {
 
 const nextState = patch(state, [
     opAdd(["values", 1], 4),
-    opDelete(["values", 0]),
+    opRemove(["values", 0]),
 ]);
 ```
 
