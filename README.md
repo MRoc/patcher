@@ -226,7 +226,7 @@ import { opAdd, patch, undo, redo } from "@mroc/patcher";
 export const reducer = function (state = initialState, action) {
   switch (action.type) {
     case ActionTypes.ADD:
-      return patch(state, opAdd(["values", 1], "Text"));
+      return patch(state, opReplace(["text"], "Hello World"), true);
     case ActionTypes.UNDO:
         return undo(state);
     case ActionTypes.REDO:
