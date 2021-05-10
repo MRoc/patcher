@@ -1,12 +1,17 @@
 # Patcher
 
-Patcher is a library for transforming immutable object trees using basic
-operations with undo history and transactions.
+Patcher is a library for transforming immutable object trees using basic operations with
+undo history and transactions.
+
+Patcher is the result of multiple-discovery beside more versatile and mature libraries
+like *Immer*: It was born from the necessity to transform a immutable state in a redux
+reducer while keeping a serializeable log of events and transactions for undo and redo.
+The underlying operations share similarities with JSON Patch (RFC 6902).
 
 ## Patch
 
-The `patch` function is the heart of patcher. It applies given operations
-to the given state and returns a new state. The `patch` function's parameter
+The `patch` function is the heart of patcher. It applies given operations *op*
+to the given *state* and returns a new state. The `patch` function's parameter
 `newTransaction` defines, if a new transaction should be started. All
 operations in one transaction can later be undone/redone with one step:
 
@@ -188,9 +193,9 @@ const state2 = redo(state1);
 
 ## Concepts
 
-All operations can be undone by creating a inverse operation using the `inverse` function.
-This is usually done internally in `undo` and `redo`. An interesting fact is that certain
-operations need previous state to be undone, for example `replace` because obviously after
-replace, the previous value is lost. For that, operations are *enriched* before placed
-into the history using the `enrich` function. This function adds a `previous` property
-to all operations that require it.
+**Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
+function. This is usually done internally in `undo` and `redo`. An interesting fact is that
+certain operations need previous state to be undone, for example `replace` because obviously
+after replace, the previous value is lost. For that, operations are *enriched* before placed
+into the history using the `enrich` function. This function adds a `previous` property to
+all operations that require it.
