@@ -102,6 +102,18 @@ describe("inverse", () => {
     ]);
     expect(inverseOp).toStrictEqual(expectedOp);
   });
+  test("With move-range to right returns inverse move-range", () => {
+    const op = opMoveRange(["a", [{ index: 1, length: 2 }, 4]]);
+    const inverseOp = inverse(op);
+    const expectedOp = opMoveRange(["a", [{ index: 2, length: 2 }, 1]]);
+    expect(inverseOp).toStrictEqual(expectedOp);
+  });
+  test("With move-range to left returns inverse move-range", () => {
+    const op = opMoveRange(["a", [{ index: 2, length: 2 }, 1]]);
+    const inverseOp = inverse(op);
+    const expectedOp = opMoveRange(["a", [{ index: 1, length: 2 }, 4]]);
+    expect(inverseOp).toStrictEqual(expectedOp);
+  });
 });
 
 describe("canMergeOp", () => {
@@ -278,18 +290,12 @@ describe("applyOp", () => {
   });
   test("With move-range to right", () => {
     const input = [1, 2, 3, 4, 5, 6];
-    const clone = applyOp(
-      input,
-      opMoveRange([[{ index: 1, length: 2 }, 4]])
-    );
+    const clone = applyOp(input, opMoveRange([[{ index: 1, length: 2 }, 4]]));
     expect(clone).toStrictEqual([1, 4, 2, 3, 5, 6]);
   });
   test("With move-range to left", () => {
     const input = [1, 4, 2, 3, 5, 6];
-    const clone = applyOp(
-      input,
-      opMoveRange([[{ index: 2, length: 2 }, 1]])
-    );
+    const clone = applyOp(input, opMoveRange([[{ index: 2, length: 2 }, 1]]));
     expect(clone).toStrictEqual([1, 2, 3, 4, 5, 6]);
   });
   test("With multiple operations applies after each other", () => {

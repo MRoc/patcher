@@ -111,6 +111,19 @@ export function inverse(op) {
       };
       return opSwapRanges([...op.path.slice(0, -1), [r11, r01]]);
     }
+    case OpTypes.MOVE_RANGE: {
+      const [r0, p0] = arrayLast(op.path);
+      let r1, p1;
+      if (r0.index < p0) {
+        r1 = { index: p0 - r0.length, length: r0.length };
+        p1 = r0.index;
+      }
+      else {
+        r1 = { index: p0, length: r0.length };
+        p1 = r0.index + r0.length;
+      }
+      return opMoveRange([...op.path.slice(0, -1), [r1, p1]])
+    }
     default:
       throw new Error(`Unknown operation op '${op.op}'`);
   }
