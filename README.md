@@ -8,6 +8,24 @@ like *Immer*: It was born from the necessity to transform a immutable state in a
 reducer while keeping a serializeable log of events and transactions for undo and redo.
 The underlying operations share similarities with JSON Patch (RFC 6902).
 
+## Example with Redux
+
+Example reducer using *Patcher*:
+
+```
+import { opReplace, patch, undo, redo } from "@mroc/patcher";
+
+export const reducer = function (state = initialState, action) {
+  switch (action.type) {
+    case ActionTypes.SET_TEXT_TO_HELLO_WORLD:
+      return patch(state, opReplace(["text"], "Hello World"), true);
+    case ActionTypes.UNDO:
+        return undo(state);
+    case ActionTypes.REDO:
+        return redo(state);
+}
+```
+
 ## Patch
 
 The `patch` function is the heart of patcher. It applies given operations *op*
@@ -17,6 +35,22 @@ operations in one transaction can later be undone/redone with one step:
 
 ```
 function patch(state, op, newTransaction)
+```
+
+## Undo
+
+Using `hasUndo`, `undo`, `hasRedo` and `redo`, the previous transaction can be reverted or an undone be replayed:
+
+```
+import { hasUndo, hasRedo, undo, redo } from "@mroc/patcher";
+
+if (hasUndo(state0)) {
+    return undo(state0);
+}
+
+if (hasRedo(state0)) {
+    return redo(state0);
+}
 ```
 
 ## Operations
@@ -37,9 +71,6 @@ Notes:
 * If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
 * Multiple succeeding `replace` operations might be grouped in a single transaction if the last transaction only consistes out of a single `replace` on the same path.
 
-
-## Examples
-
 ### Add
 
 Add property to object:
@@ -51,7 +82,6 @@ const state = patch ({ }, opAdd(["property"], "value");
 
 // { "property": "value" }
 ```
-
 
 Inserting value into array:
 
@@ -179,34 +209,6 @@ const nextState = patch(state, [
 ]);
 ```
 
-## Undo and Redo
-
-Using `undo` and `redo`, the previous transaction can be reverted or an undone be replayed:
-
-```
-import { undo, redo } from "@mroc/patcher";
-
-const state1 = undo(state0);
-const state2 = redo(state1);
-
-// state1 equals state 0
-```
-
-To check if `undo` and `redo` is available, `hasUndo` and `hasRedo` can be used:
-
-```
-import { hasUndo, hasRedo, undo } from "@mroc/patcher";
-
-if (hasUndo(state0)) {
-    return undo(state0);
-}
-
-if (hasRedo(state0)) {
-    return redo(state0);
-}
-```
-
-
 ## Concepts
 
 **Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
@@ -215,21 +217,3 @@ certain operations need previous state to be undone, for example `replace` becau
 after replace, the previous value is lost. For that, operations are *enriched* before placed
 into the history using the `enrich` function. This function adds a `previous` property to
 all operations that require it.
-
-## Patcher with Redux
-
-Example reducer using *Patcher*:
-
-```
-import { opAdd, patch, undo, redo } from "@mroc/patcher";
-
-export const reducer = function (state = initialState, action) {
-  switch (action.type) {
-    case ActionTypes.ADD:
-      return patch(state, opReplace(["text"], "Hello World"), true);
-    case ActionTypes.UNDO:
-        return undo(state);
-    case ActionTypes.REDO:
-        return redo(state);
-}
-```
