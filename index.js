@@ -97,12 +97,11 @@ export function inverse(op) {
       if (r0.index < p0) {
         r1 = { index: p0 - r0.length, length: r0.length };
         p1 = r0.index;
-      }
-      else {
+      } else {
         r1 = { index: p0, length: r0.length };
         p1 = r0.index + r0.length;
       }
-      return opMoveRange([...op.path.slice(0, -1), [r1, p1]])
+      return opMoveRange([...op.path.slice(0, -1), [r1, p1]]);
     }
     default:
       throw new Error(`Unknown operation op '${op.op}'`);
@@ -354,12 +353,6 @@ function arrayMoveRange(array, ranges) {
       ...array.slice(range.index + range.length, array.length),
     ];
   }
-}
-
-function arraySort(array, func) {
-  const clone = array.slice(0);
-  clone.sort(func);
-  return clone;
 }
 
 function arrayLast(array) {
