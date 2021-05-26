@@ -234,8 +234,12 @@ export function canMergeOp(history, transaction, op) {
 
 export function mergeLastOp(history, op) {
   if (Array.isArray(op)) {
-    throw new Error(`Merge only works on single operations!`);
+    if (op.length !== 1) {
+      throw new Error(`Merge only works on single operations!`);
+    }
+    op = op[0];
   }
+
   const lastOp = arrayLast(history);
   return [...arraySkipLast(history), { ...lastOp, value: op.value }];
 }
