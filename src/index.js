@@ -115,6 +115,10 @@ export function emptyHistory() {
 export const defaultTransaction = -1;
 
 export function patch(state, op, newTransaction) {
+  return patchWithOps(state, op, newTransaction)[0];
+}
+
+export function patchWithOps(state, op, newTransaction) {
   let history = state.history || emptyHistory();
   let transaction =
     state.transaction === undefined ? defaultTransaction : state.transaction;
@@ -131,7 +135,7 @@ export function patch(state, op, newTransaction) {
     history = addOp(history, transaction, enrich(state, op));
   }
 
-  return combine(applyOp(state, op), history, transaction);
+  return [combine(applyOp(state, op), history, transaction), op];
 }
 
 export function combine(state, history, transaction) {
@@ -153,6 +157,10 @@ export function hasUndo(state) {
 }
 
 export function undo(state) {
+  return undoWithOps(state)[0];
+}
+
+export function undoWithOps(state) {
   const transaction = state.transaction;
 
   const operations = state.history
@@ -164,7 +172,10 @@ export function undo(state) {
     throw new Error(`Nothing to undo! (transaction=${transaction})`);
   }
 
-  return combine(applyOp(state, operations), state.history, transaction - 1);
+  return [
+    combine(applyOp(state, operations), state.history, transaction - 1),
+    operations,
+  ];
 }
 
 export function hasRedo(state) {
@@ -175,6 +186,10 @@ export function hasRedo(state) {
 }
 
 export function redo(state) {
+  return redoWithOps(state)[0];
+}
+
+export function redoWithOps(state) {
   const transaction = state.transaction + 1;
 
   const operations = state.history.filter(
@@ -185,7 +200,10 @@ export function redo(state) {
     throw new Error(`Nothing to redo! (transaction=${transaction})`);
   }
 
-  return combine(applyOp(state, operations), state.history, transaction);
+  return [
+    combine(applyOp(state, operations), state.history, transaction),
+    operations,
+  ];
 }
 
 export function canMergeOp(history, transaction, op) {
