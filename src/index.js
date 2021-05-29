@@ -137,8 +137,7 @@ export function patchWithOps(state, op, newTransaction) {
     history = addOp(history, transaction, enrich(state, op));
   }
 
-  // TODO:version increment state.version by operations.length
-  return [combine(applyOp(state, op), history, transaction), op];
+  return [combine(applyOp(state, op), history, transaction, nextVersion(state)), op];
 }
 
 export function combine(state, history, transaction = defaultTransaction, version = defaultVersion) {
@@ -149,12 +148,14 @@ export function combine(state, history, transaction = defaultTransaction, versio
     return state;
   }
 
-  return {
-    ...state,
-    history,
-    transaction,
-    version
-  };
+  return { ...state, history, transaction, version };
+}
+
+export function nextVersion(state, op) {
+  if (state.version === undefined) {
+    state.version = defaultVersion;
+  }
+  return state.version + 1;
 }
 
 export function hasUndo(state) {
@@ -178,8 +179,7 @@ export function undoWithOps(state) {
   }
 
   return [
-    // TODO:version increment state.version by operations.length
-    combine(applyOp(state, operations), state.history, transaction - 1),
+    combine(applyOp(state, operations), state.history, transaction - 1, nextVersion(state, operations)),
     operations,
   ];
 }
@@ -207,8 +207,7 @@ export function redoWithOps(state) {
   }
 
   return [
-    // TODO:version increment state.version by operations.length
-    combine(applyOp(state, operations), state.history, transaction),
+    combine(applyOp(state, operations), state.history, transaction, nextVersion(state, operations)),
     operations,
   ];
 }
