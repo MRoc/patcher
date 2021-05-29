@@ -114,6 +114,8 @@ export function emptyHistory() {
 
 export const defaultTransaction = -1;
 
+export const defaultVersion = 0;
+
 export function patch(state, op, newTransaction) {
   return patchWithOps(state, op, newTransaction)[0];
 }
@@ -135,20 +137,23 @@ export function patchWithOps(state, op, newTransaction) {
     history = addOp(history, transaction, enrich(state, op));
   }
 
+  // TODO:version increment state.version by operations.length
   return [combine(applyOp(state, op), history, transaction), op];
 }
 
-export function combine(state, history, transaction) {
+export function combine(state, history, transaction = defaultTransaction, version = defaultVersion) {
   if (Array.isArray(state)) {
     state.history = history;
     state.transaction = transaction;
+    state.version = version;
     return state;
   }
 
   return {
     ...state,
-    history: history,
-    transaction: transaction,
+    history,
+    transaction,
+    version
   };
 }
 
@@ -173,6 +178,7 @@ export function undoWithOps(state) {
   }
 
   return [
+    // TODO:version increment state.version by operations.length
     combine(applyOp(state, operations), state.history, transaction - 1),
     operations,
   ];
@@ -201,6 +207,7 @@ export function redoWithOps(state) {
   }
 
   return [
+    // TODO:version increment state.version by operations.length
     combine(applyOp(state, operations), state.history, transaction),
     operations,
   ];

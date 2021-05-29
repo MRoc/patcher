@@ -211,9 +211,13 @@ const nextState = patch(state, [
 
 ## Concepts
 
-**Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
+* **Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
 function. This is usually done internally in `undo` and `redo`. An interesting fact is that
 certain operations need previous state to be undone, for example `replace` because obviously
 after replace, the previous value is lost. For that, operations are *enriched* before placed
 into the history using the `enrich` function. This function adds a `previous` property to
 all operations that require it.
+* **State**: The document state that should be transformed by operations.
+* **Version**: Total number of operations applied on the state including undo+redo.
+* **History**: List of operations applied on a state, grouped by transaction, required for undo/redo.
+* **Transaction**: Number of transaction that identifies all operations in history applied to State.
