@@ -9,27 +9,42 @@ const OpTypes = {
 };
 
 export function opAdd(path, value, transaction) {
-  return { op: OpTypes.ADD, transaction, path, value };
+  return { ...createOp(OpTypes.ADD, path, transaction), value };
 }
 
 export function opAddRange(path, value, transaction) {
-  return { op: OpTypes.ADD_RANGE, transaction, path, value };
+  return { ...createOp(OpTypes.ADD_RANGE, path, transaction), value };
 }
 
 export function opReplace(path, value, transaction) {
-  return { op: OpTypes.REPLACE, transaction, path, value };
+  return { ...createOp(OpTypes.REPLACE, path, transaction), value };
 }
 
 export function opRemove(path, transaction) {
-  return { op: OpTypes.REMOVE, transaction, path };
+  return createOp(OpTypes.REMOVE, path, transaction);
 }
 
 export function opRemoveRange(path, transaction) {
-  return { op: OpTypes.REMOVE_RANGE, transaction, path };
+  return createOp(OpTypes.REMOVE_RANGE, path, transaction);
 }
 
 export function opMoveRange(path, transaction) {
-  return { op: OpTypes.MOVE_RANGE, transaction, path };
+  return createOp(OpTypes.MOVE_RANGE, path, transaction);
+}
+
+function createOp(op, path, transaction) {
+  const result = { op, path };
+  if (transaction !== undefined) {
+    result.transaction = transaction;
+  }
+  return result;
+}
+
+function createOpEnriched(op, previous) {
+  if (previous !== undefined) {
+    return { ...op, previous };
+  }
+  return op;
 }
 
 export function enrich(obj, op) {
@@ -42,7 +57,10 @@ export function enrich(obj, op) {
     op.op === OpTypes.REMOVE ||
     op.op === OpTypes.REMOVE_RANGE
   ) {
-    return { ...op, previous: getValue(obj, op.path) };
+    const previous = getValue(obj, op.path);
+    if (previous !== undefined) {
+      return createOpEnriched(op, previous);
+    }
   }
 
   return op;
@@ -62,15 +80,15 @@ function getValue(obj, path) {
 }
 
 export function opReplaceEnriched(path, previous, value, transaction) {
-  return { ...opReplace(path, value, transaction), previous };
+  return createOpEnriched(opReplace(path, value, transaction), previous);
 }
 
 export function opRemoveEnriched(path, previous, transaction) {
-  return { ...opRemove(path, transaction), previous };
+  return createOpEnriched(opRemove(path, transaction), previous);
 }
 
 export function opRemoveRangeEnriched(path, previous, transaction) {
-  return { ...opRemoveRange(path, transaction), previous };
+  return createOpEnriched(opRemoveRange(path, transaction), previous);
 }
 
 export function inverse(op) {
@@ -137,10 +155,18 @@ export function patchWithOps(state, op, newTransaction) {
     history = addOp(history, transaction, enrich(state, op));
   }
 
-  return [combine(applyOp(state, op), history, transaction, nextVersion(state)), op];
+  return [
+    combine(applyOp(state, op), history, transaction, nextVersion(state)),
+    op,
+  ];
 }
 
-export function combine(state, history, transaction = defaultTransaction, version = defaultVersion) {
+export function combine(
+  state,
+  history,
+  transaction = defaultTransaction,
+  version = defaultVersion
+) {
   if (Array.isArray(state)) {
     state.history = history;
     state.transaction = transaction;
@@ -151,7 +177,7 @@ export function combine(state, history, transaction = defaultTransaction, versio
   return { ...state, history, transaction, version };
 }
 
-export function nextVersion(state, op) {
+export function nextVersion(state) {
   if (state.version === undefined) {
     state.version = defaultVersion;
   }
@@ -179,7 +205,12 @@ export function undoWithOps(state) {
   }
 
   return [
-    combine(applyOp(state, operations), state.history, transaction - 1, nextVersion(state, operations)),
+    combine(
+      applyOp(state, operations),
+      state.history,
+      transaction - 1,
+      nextVersion(state)
+    ),
     operations,
   ];
 }
@@ -207,7 +238,12 @@ export function redoWithOps(state) {
   }
 
   return [
-    combine(applyOp(state, operations), state.history, transaction, nextVersion(state, operations)),
+    combine(
+      applyOp(state, operations),
+      state.history,
+      transaction,
+      nextVersion(state)
+    ),
     operations,
   ];
 }
