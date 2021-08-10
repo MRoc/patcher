@@ -48,7 +48,7 @@ export function enrich(obj, op) {
   return op;
 }
 
-function getValue(obj, path) {
+export function getValue(obj, path) {
   const property = path[0];
   if (path.length === 1) {
     if (Array.isArray(obj) && typeof property === "object") {
