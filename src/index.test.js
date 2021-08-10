@@ -269,11 +269,7 @@ describe("patch", () => {
     const state = {};
     const op = opAdd(["a"], 2);
     const clone = patch(state, op);
-    expect(clone).toStrictEqual({
-      a: 2,
-      history: [opAdd(["a"], 2, 0)],
-      transaction: 0,
-    });
+    expect(clone).toStrictEqual(combine({ a: 2 }, [opAdd(["a"], 2, 0)], 0, 1));
   });
   test("With add to array, starts transaction, adds to history, adds element", () => {
     const state = [1, 2, 3];
@@ -295,10 +291,9 @@ describe("patch", () => {
     const state = { a: 2 };
     const op = opRemove(["a"]);
     const clone = patch(state, op);
-    expect(clone).toStrictEqual({
-      history: [opRemoveEnriched(["a"], 2, 0)],
-      transaction: 0,
-    });
+    expect(clone).toStrictEqual(
+      combine({}, [opRemoveEnriched(["a"], 2, 0)], 0, 1)
+    );
   });
   test("With remove from array, starts transaction, adds to history, removes element", () => {
     const state = [1, 2, 5, 3];
@@ -331,11 +326,9 @@ describe("patch", () => {
     const state = { a: 2 };
     const op = opReplace(["a"], 3);
     const clone = patch(state, op);
-    expect(clone).toStrictEqual({
-      a: 3,
-      history: [opReplaceEnriched(["a"], 2, 3, 0)],
-      transaction: 0,
-    });
+    expect(clone).toStrictEqual(
+      combine({ a: 3 }, [opReplaceEnriched(["a"], 2, 3, 0)], 0, 1)
+    );
   });
   test("With replace on array, starts transaction, adds to history, updates element", () => {
     const state = [1, 2, 5, 3];
@@ -345,16 +338,17 @@ describe("patch", () => {
     expect(clone.history.length).toBe(1);
     expect(clone.transaction).toBe(0);
   });
+  test("With two sets, increments version twice", () => {
+    const clone = patch({}, [opAdd(["a"], 2), opAdd(["a"], 2)]);
+    expect(clone.version).toBe(2);
+  });
 });
 
 describe("undo", () => {
   test("With add to object, removes property and decrements transaction", () => {
     const state = combine({ a: 2 }, [opAdd(["a"], 2, 0)], 0);
     const clone = undo(state);
-    expect(clone).toStrictEqual({
-      history: [opAdd(["a"], 2, 0)],
-      transaction: -1,
-    });
+    expect(clone).toStrictEqual(combine({}, [opAdd(["a"], 2, 0)], -1, 1));
   });
   test("With add to array, removes element and decrements transaction", () => {
     const state = combine([1, 2, 5, 3], [opAdd([2], 5, 0)], 0);
@@ -369,11 +363,9 @@ describe("undo", () => {
   test("With remove from object, adds property and decrements transaction", () => {
     const state = combine({}, [opRemoveEnriched(["a"], 2, 0)], 0);
     const clone = undo(state);
-    expect(clone).toStrictEqual({
-      a: 2,
-      history: [opRemoveEnriched(["a"], 2, 0)],
-      transaction: -1,
-    });
+    expect(clone).toStrictEqual(
+      combine({ a: 2 }, [opRemoveEnriched(["a"], 2, 0)], -1, 1)
+    );
   });
   test("With remove from array, adds element and decrements transaction", () => {
     const state = combine([1, 2, 3], [opRemoveEnriched([2], 5, 0)], 0);
@@ -392,11 +384,9 @@ describe("undo", () => {
   test("With replace on object, updates property and decrements transaction", () => {
     const state = combine({ a: 3 }, [opReplaceEnriched(["a"], 2, 3, 0)], 0);
     const clone = undo(state);
-    expect(clone).toStrictEqual({
-      a: 2,
-      history: [opReplaceEnriched(["a"], 2, 3, 0)],
-      transaction: -1,
-    });
+    expect(clone).toStrictEqual(
+      combine({ a: 2 }, [opReplaceEnriched(["a"], 2, 3, 0)], -1, 1)
+    );
   });
   test("With replace on array, updates element and decrements transaction", () => {
     const state = combine([1, 4, 3], [opReplaceEnriched([1], 2, 4, 0)], 0);
@@ -409,11 +399,7 @@ describe("redo", () => {
   test("With add to object, adds property and increments transaction", () => {
     const state = combine({}, [opAdd(["a"], 2, 0)], -1);
     const clone = redo(state);
-    expect(clone).toStrictEqual({
-      a: 2,
-      history: [opAdd(["a"], 2, 0)],
-      transaction: 0,
-    });
+    expect(clone).toStrictEqual(combine({ a: 2 }, [opAdd(["a"], 2, 0)], 0, 1));
   });
   test("With add to array, add element and increments transaction", () => {
     const state = combine([1, 2, 3], [opAdd([2], 4, 0)], -1);
@@ -428,10 +414,9 @@ describe("redo", () => {
   test("With remove from object, removes property and increments transaction", () => {
     const state = combine({ a: 2 }, [opRemoveEnriched(["a"], 2, 0)], -1);
     const clone = redo(state);
-    expect(clone).toStrictEqual({
-      history: [opRemoveEnriched(["a"], 2, 0)],
-      transaction: 0,
-    });
+    expect(clone).toStrictEqual(
+      combine({}, [opRemoveEnriched(["a"], 2, 0)], 0, 1)
+    );
   });
   test("With remove from array, removes element and increments transaction", () => {
     const state = combine([1, 2, 4, 3], [opRemoveEnriched([2], 4, 0)], -1);
@@ -441,11 +426,9 @@ describe("redo", () => {
   test("With replace on object, updates property and increments transaction", () => {
     const state = combine({ a: 2 }, [opReplaceEnriched(["a"], 2, 3, 0)], -1);
     const clone = redo(state);
-    expect(clone).toStrictEqual({
-      a: 3,
-      history: [opReplaceEnriched(["a"], 2, 3, 0)],
-      transaction: 0,
-    });
+    expect(clone).toStrictEqual(
+      combine({ a: 3 }, [opReplaceEnriched(["a"], 2, 3, 0)], 0, 1)
+    );
   });
   test("With replace on array, updates element and increments transaction", () => {
     const state = combine([1, 2, 3], [opReplaceEnriched([1], 2, 5, 0)], -1);

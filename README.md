@@ -93,7 +93,7 @@ const state = patch([1, 2, 3], opAdd([1], 4));
 // [1, 2, 4, 3]
 ```
 
-Note: Operations and current transaction is added to state:
+Note: Operations, current transaction and version is added to state:
 
 ```
 {
@@ -101,7 +101,8 @@ Note: Operations and current transaction is added to state:
     history: [
         { op: "add", path: ["property"], value: "value", transaction: 0 }
     ],
-    transaction: 0
+    transaction: 0,
+    version: 1
 }
 ```
 
@@ -211,9 +212,13 @@ const nextState = patch(state, [
 
 ## Concepts
 
-**Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
+* **Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
 function. This is usually done internally in `undo` and `redo`. An interesting fact is that
 certain operations need previous state to be undone, for example `replace` because obviously
 after replace, the previous value is lost. For that, operations are *enriched* before placed
 into the history using the `enrich` function. This function adds a `previous` property to
 all operations that require it.
+* **State**: The document state that should be transformed by operations.
+* **Version**: Total number of times the state was transformed by either patch, undo or redo.
+* **History**: List of operations applied on a state, grouped by transaction, required for undo/redo.
+* **Transaction**: Number of transaction that identifies all operations in history applied to State.
