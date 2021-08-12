@@ -1,6 +1,6 @@
 {
   "name": "@mroc/patcher",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Immutable state transformations with undo/redo history",
   "main": "lib/index.js",
   "scripts": {

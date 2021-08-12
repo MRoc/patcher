@@ -363,7 +363,10 @@ function applyOpObject(obj, op) {
       }
     }
   }
-  if (op.op === OpTypes.ADD && op.path.length === 1) {
+  if (
+    (op.op === OpTypes.REPLACE || op.op === OpTypes.ADD) &&
+    op.path.length === 1
+  ) {
     result[op.path[0]] = op.value;
   }
   return result;
