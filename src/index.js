@@ -12,7 +12,6 @@ import {
   opRemoveRange,
   opRemoveRangeEnriched,
   opMoveRange,
-  enrich,
 } from "./optype";
 
 const type = new OpType();
@@ -44,7 +43,11 @@ export function getValue(obj, path) {
 }
 
 export function emptyHistory() {
-  return [];
+  return createHistory();
+}
+
+export function createHistory(ops, opsInverted) {
+  return { ops: ops || [], opsInverted: opsInverted || [] };
 }
 
 export const defaultTransaction = -1;
@@ -66,10 +69,10 @@ export function patchWithOps(state, op, newTransaction) {
     } else {
       transaction++;
       history = discardFutureOps(history, transaction);
-      history = addOp(history, transaction, enrich(state, op));
+      history = addOp(state, history, transaction, op);
     }
   } else {
-    history = addOp(history, transaction, enrich(state, op));
+    history = addOp(state, history, transaction, op);
   }
 
   return [
@@ -110,7 +113,7 @@ export function nextVersion(state, op) {
 }
 
 export function hasUndo(state) {
-  return state.history.length > 0 && state.transaction > defaultTransaction;
+  return state.history.ops.length > 0 && state.transaction > defaultTransaction;
 }
 
 export function undo(state) {
@@ -120,9 +123,8 @@ export function undo(state) {
 export function undoWithOps(state) {
   const transaction = state.transaction;
 
-  const operations = state.history
+  const operations = state.history.opsInverted
     .filter((op) => op.transaction === transaction)
-    .map((op) => type.invert(op))
     .reverse();
 
   if (operations.length === 0) {
@@ -142,8 +144,8 @@ export function undoWithOps(state) {
 
 export function hasRedo(state) {
   return (
-    state.history.length > 0 &&
-    state.transaction < arrayMax(state.history.map((op) => op.transaction))
+    state.history.ops.length > 0 &&
+    state.transaction < arrayMax(state.history.ops.map((op) => op.transaction))
   );
 }
 
@@ -154,7 +156,7 @@ export function redo(state) {
 export function redoWithOps(state) {
   const transaction = state.transaction + 1;
 
-  const operations = state.history.filter(
+  const operations = state.history.ops.filter(
     (op) => op.transaction === transaction
   );
 
@@ -182,7 +184,7 @@ export function canMergeOp(history, transaction, op) {
     }
   }
 
-  const lastOps = history.filter((op) => op.transaction === transaction);
+  const lastOps = history.ops.filter((op) => op.transaction === transaction);
   if (lastOps.length !== 1) {
     return false;
   }
@@ -207,25 +209,40 @@ export function mergeLastOp(history, op) {
     op = op[0];
   }
 
-  const lastOp = arrayLast(history);
-  return [...arraySkipLast(history), { ...lastOp, value: op.value }];
+  const lastOp = arrayLast(history.ops);
+
+  return {
+    ops: [...arraySkipLast(history.ops), { ...lastOp, value: op.value }],
+    opsInverted: history.opsInverted,
+  };
 }
 
 export function discardFutureOps(history, transaction) {
-  return [...history.filter((op) => op.transaction < transaction)];
+  return {
+    ops: history.ops.filter((op) => op.transaction < transaction),
+    opsInverted: history.opsInverted.filter(
+      (op) => op.transaction < transaction
+    ),
+  };
 }
 
-export function addOp(history, transaction, op) {
-  if (Array.isArray(op)) {
-    return [
-      ...history,
-      ...op.map((o) => {
-        return { ...o, transaction };
-      }),
-    ];
-  } else {
-    return [...history, { ...op, transaction }];
+export function addOp(state, history, transaction, op) {
+  if (!Array.isArray(op)) {
+    op = [op];
   }
+
+  const ops = op.map((o) => {
+    return { ...o, transaction };
+  });
+
+  const opsInverted = op.map((o) => {
+    return { ...type.invertWithDoc(o, state), transaction };
+  });
+
+  return {
+    ops: [...history.ops, ...ops],
+    opsInverted: [...history.opsInverted, ...opsInverted],
+  };
 }
 
 function arrayLast(array) {
