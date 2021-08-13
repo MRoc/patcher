@@ -101,85 +101,107 @@ describe("discardFutureOps", () => {
   });
 });
 
-// describe("patch", () => {
-//   test("With add to object, starts transaction, adds to history, adds property", () => {
-//     const state = {};
-//     const op = opAdd(["a"], 2);
-//     const clone = patch(state, op);
-//     expect(clone).toStrictEqual(combine({ a: 2 }, [opAdd(["a"], 2, 0)], 0, 1));
-//   });
-//   test("With add to array, starts transaction, adds to history, adds element", () => {
-//     const state = [1, 2, 3];
-//     const op = opAdd([1], 5);
-//     const clone = patch(state, op);
-//     expect(clone.slice(0)).toStrictEqual([1, 5, 2, 3]);
-//     expect(clone.history.length).toBe(1);
-//     expect(clone.transaction).toBe(0);
-//   });
-//   test("With add-range to array, starts transaction, adds to history, adds elements", () => {
-//     const state = [1, 2, 3];
-//     const op = opAddRange([1], [4, 5]);
-//     const clone = patch(state, op);
-//     expect(clone.slice(0)).toStrictEqual([1, 4, 5, 2, 3]);
-//     expect(clone.history.length).toBe(1);
-//     expect(clone.transaction).toBe(0);
-//   });
-//   test("With remove from object, starts transaction, adds to history, removes property", () => {
-//     const state = { a: 2 };
-//     const op = opRemove(["a"]);
-//     const clone = patch(state, op);
-//     expect(clone).toStrictEqual(
-//       combine({}, [opRemoveEnriched(["a"], 2, 0)], 0, 1)
-//     );
-//   });
-//   test("With remove from array, starts transaction, adds to history, removes element", () => {
-//     const state = [1, 2, 5, 3];
-//     const op = opRemove([2]);
-//     const clone = patch(state, op);
-//     expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
-//     expect(clone.history.length).toBe(1);
-//     expect(clone.transaction).toBe(0);
-//   });
-//   test("With remove-range from array, starts transaction, adds to history, removes elements", () => {
-//     const state = [1, 2, 5, 3];
-//     const op = opRemoveRange([{ index: 1, length: 2 }]);
-//     const clone = patch(state, op);
-//     expect(clone.slice(0)).toStrictEqual([1, 3]);
-//     expect(clone.history.length).toBe(1);
-//     expect(clone.transaction).toBe(0);
-//   });
-//   // TODO This case is not implemented yet and differs from JSON patch RFC
-//   // test("With replace on object empty, starts transaction, adds to history, creates property", () => {
-//   //   const state = { };
-//   //   const op = opReplace(["a"], 3);
-//   //   const clone = patch(state, op);
-//   //   expect(clone).toStrictEqual({
-//   //     a: 3,
-//   //     history: [opReplaceEnriched(["a"], undefined, 3, 0)],
-//   //     transaction: 0,
-//   //   });
-//   // });
-//   test("With replace on object, starts transaction, adds to history, updates property", () => {
-//     const state = { a: 2 };
-//     const op = opReplace(["a"], 3);
-//     const clone = patch(state, op);
-//     expect(clone).toStrictEqual(
-//       combine({ a: 3 }, [opReplaceEnriched(["a"], 2, 3, 0)], 0, 1)
-//     );
-//   });
-//   test("With replace on array, starts transaction, adds to history, updates element", () => {
-//     const state = [1, 2, 5, 3];
-//     const op = opReplace([2], 4);
-//     const clone = patch(state, op);
-//     expect(clone.slice(0)).toStrictEqual([1, 2, 4, 3]);
-//     expect(clone.history.length).toBe(1);
-//     expect(clone.transaction).toBe(0);
-//   });
-//   test("With two sets, increments version twice", () => {
-//     const clone = patch({}, [opAdd(["a"], 2), opAdd(["a"], 2)]);
-//     expect(clone.version).toBe(2);
-//   });
-// });
+describe("patch", () => {
+  test("With add to object, starts transaction, adds to history, adds property", () => {
+    const state = {};
+    const op = opAdd(["a"], 2);
+    const clone = patch(state, op);
+    expect(clone).toStrictEqual(
+      combine(
+        { a: 2 },
+        createHistory([opAdd(["a"], 2, 0)], [opRemove(["a"], 0)]),
+        0,
+        1
+      )
+    );
+  });
+  test("With add to array, starts transaction, adds to history, adds element", () => {
+    const state = [1, 2, 3];
+    const op = opAdd([1], 5);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 5, 2, 3]);
+    expect(clone.history.ops.length).toBe(1);
+    expect(clone.history.opsInverted.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With add-range to array, starts transaction, adds to history, adds elements", () => {
+    const state = [1, 2, 3];
+    const op = opAddRange([1], [4, 5]);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 4, 5, 2, 3]);
+    expect(clone.history.ops.length).toBe(1);
+    expect(clone.history.opsInverted.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With remove from object, starts transaction, adds to history, removes property", () => {
+    const state = { a: 2 };
+    const op = opRemove(["a"]);
+    const clone = patch(state, op);
+    expect(clone).toStrictEqual(
+      combine(
+        {},
+        createHistory([opRemove(["a"], 0)], [opAdd(["a"], 2, 0)]),
+        0,
+        1
+      )
+    );
+  });
+  test("With remove from array, starts transaction, adds to history, removes element", () => {
+    const state = [1, 2, 5, 3];
+    const op = opRemove([2]);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 3]);
+    expect(clone.history.ops.length).toBe(1);
+    expect(clone.history.opsInverted.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With remove-range from array, starts transaction, adds to history, removes elements", () => {
+    const state = [1, 2, 5, 3];
+    const op = opRemoveRange([{ index: 1, length: 2 }]);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 3]);
+    expect(clone.history.ops.length).toBe(1);
+    expect(clone.history.opsInverted.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  // TODO This case is not implemented yet and differs from JSON patch RFC
+  // test("With replace on object empty, starts transaction, adds to history, creates property", () => {
+  //   const state = { };
+  //   const op = opReplace(["a"], 3);
+  //   const clone = patch(state, op);
+  //   expect(clone).toStrictEqual({
+  //     a: 3,
+  //     history: [opReplaceEnriched(["a"], undefined, 3, 0)],
+  //     transaction: 0,
+  //   });
+  // });
+  test("With replace on object, starts transaction, adds to history, updates property", () => {
+    const state = { a: 2 };
+    const op = opReplace(["a"], 3);
+    const clone = patch(state, op);
+    expect(clone).toStrictEqual(
+      combine(
+        { a: 3 },
+        createHistory([opReplace(["a"], 3, 0)], [opReplace(["a"], 2, 0)]),
+        0,
+        1
+      )
+    );
+  });
+  test("With replace on array, starts transaction, adds to history, updates element", () => {
+    const state = [1, 2, 5, 3];
+    const op = opReplace([2], 4);
+    const clone = patch(state, op);
+    expect(clone.slice(0)).toStrictEqual([1, 2, 4, 3]);
+    expect(clone.history.ops.length).toBe(1);
+    expect(clone.history.opsInverted.length).toBe(1);
+    expect(clone.transaction).toBe(0);
+  });
+  test("With two sets, increments version twice", () => {
+    const clone = patch({}, [opAdd(["a"], 2), opAdd(["a"], 2)]);
+    expect(clone.version).toBe(2);
+  });
+});
 
 // describe("undo", () => {
 //   test("With add to object, removes property and decrements transaction", () => {

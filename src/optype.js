@@ -32,18 +32,6 @@ export function opMoveRange(path, transaction) {
   return createOp(OpTypes.MOVE_RANGE, path, transaction);
 }
 
-export function opReplaceEnriched(path, previous, value, transaction) {
-  return createOpEnriched(opReplace(path, value, transaction), previous);
-}
-
-export function opRemoveEnriched(path, previous, transaction) {
-  return createOpEnriched(opRemove(path, transaction), previous);
-}
-
-export function opRemoveRangeEnriched(path, previous, transaction) {
-  return createOpEnriched(opRemoveRange(path, transaction), previous);
-}
-
 function createOp(op, path, transaction) {
   const result = { op, path };
   if (transaction !== undefined) {
@@ -71,23 +59,24 @@ OpType.prototype.apply = function (doc, op) {
   }
 };
 
-OpType.prototype.invert = function (op) {
+OpType.prototype.invertWithDoc = function (op, doc) {
   switch (op.op) {
     case OpTypes.ADD:
-      return opRemove(op.path);
+      return opRemove(op.path, op.transaction);
     case OpTypes.ADD_RANGE:
       return opRemoveRange([
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
       ]);
     case OpTypes.REPLACE:
-      return opReplaceEnriched(op.path, op.value, op.previous);
+      return opReplace(op.path, getValue(doc, op.path), op.transaction);
     case OpTypes.REMOVE:
-      return opAdd(op.path, op.previous);
+      return opAdd(op.path, getValue(doc, op.path), op.transaction);
     case OpTypes.REMOVE_RANGE:
       return opAddRange(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
-        op.previous
+        getValue(doc, op.path),
+        op.transaction
       );
     case OpTypes.MOVE_RANGE: {
       const [r0, p0] = arrayLast(op.path);
@@ -99,15 +88,11 @@ OpType.prototype.invert = function (op) {
         r1 = { index: p0, length: r0.length };
         p1 = r0.index + r0.length;
       }
-      return opMoveRange([...op.path.slice(0, -1), [r1, p1]]);
+      return opMoveRange([...op.path.slice(0, -1), [r1, p1]], op.transaction);
     }
     default:
       throw new Error(`Unknown operation op '${op.op}'`);
   }
-};
-
-OpType.prototype.invertWithDoc = function (op, doc) {
-  return OpType.prototype.invert(enrich(doc, op));
 };
 
 OpType.prototype.composeSimilar = function (op1, op2) {
@@ -232,25 +217,6 @@ function createOpDescend(operation) {
   };
 }
 
-export function enrich(obj, op) {
-  if (Array.isArray(op)) {
-    return op.map((o) => enrich(obj, o));
-  }
-
-  if (
-    op.op === OpTypes.REPLACE ||
-    op.op === OpTypes.REMOVE ||
-    op.op === OpTypes.REMOVE_RANGE
-  ) {
-    const previous = getValue(obj, op.path);
-    if (previous !== undefined) {
-      return createOpEnriched(op, previous);
-    }
-  }
-
-  return op;
-}
-
 export function getValue(obj, path) {
   const property = path[0];
   if (path.length === 1) {
@@ -262,13 +228,6 @@ export function getValue(obj, path) {
   } else {
     return getValue(obj[property], path.slice(1));
   }
-}
-
-function createOpEnriched(op, previous) {
-  if (previous !== undefined) {
-    return { ...op, previous };
-  }
-  return op;
 }
 
 function arrayLast(array) {

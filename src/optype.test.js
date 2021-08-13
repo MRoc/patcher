@@ -2,92 +2,13 @@ import {
   opAdd,
   opAddRange,
   opReplace,
-  opReplaceEnriched,
   opRemove,
-  opRemoveEnriched,
   opRemoveRange,
-  opRemoveRangeEnriched,
   opMoveRange,
-  enrich,
   OpType,
 } from "./optype.js";
 
 const type = new OpType();
-
-describe("enrich", () => {
-  test("With single replace stores previous value", () => {
-    const obj = [{ a: 0 }];
-    const op = opReplace([0, "a"], 1, 2, 3);
-    const opEnriched = enrich(obj, op);
-    expect(opEnriched.previous).toBe(0);
-  });
-  test("With multiple replace stores previous values", () => {
-    const obj = [{ a: 0 }, { a: 1 }];
-    const op = [opReplace([0, "a"], 2, 2), opReplace([1, "a"], 3, 2)];
-    const opEnriched = enrich(obj, op);
-    expect(opEnriched).toStrictEqual([
-      opReplaceEnriched([0, "a"], 0, 2, 2),
-      opReplaceEnriched([1, "a"], 1, 3, 2),
-    ]);
-  });
-  test("With single remove stores previous value", () => {
-    const obj = [{ a: "A" }];
-    const op = opRemove([0, "a"]);
-    const opEnriched = enrich(obj, op);
-    expect(opEnriched.previous).toBe("A");
-  });
-  test("With single remove range stores previous value", () => {
-    const obj = [1, 2, 3, 4];
-    const op = opRemoveRange([{ index: 1, length: 2 }]);
-    const opEnriched = enrich(obj, op);
-    expect(opEnriched.previous).toEqual([2, 3]);
-  });
-});
-
-describe("invert", () => {
-  test("With add returns inverse remove", () => {
-    const op = opAdd(["a", "b"], "c");
-    const inverseOp = type.invert(op);
-    expect(inverseOp).toStrictEqual(opRemove(["a", "b"]));
-  });
-  test("With add-range returns inverse remove-range", () => {
-    const op = opAddRange(["a", 1], ["c", "d"]);
-    const inverseOp = type.invert(op);
-    expect(inverseOp).toStrictEqual(
-      opRemoveRange(["a", { index: 1, length: 2 }])
-    );
-  });
-  test("With replace returns inverse replace", () => {
-    const op = opReplaceEnriched(["a", "b"], "c", "d");
-    const inverseOp = type.invert(op);
-    expect(inverseOp).toStrictEqual(opReplaceEnriched(["a", "b"], "d", "c"));
-  });
-  test("With remove returns inverse add", () => {
-    const op = opRemoveEnriched(["a", "b"], "X");
-    const inverseOp = type.invert(op);
-    expect(inverseOp).toStrictEqual(opAdd(["a", "b"], "X"));
-  });
-  test("With remove-range returns inverse add", () => {
-    const op = opRemoveRangeEnriched(
-      ["a", { index: 1, length: 2 }],
-      ["X", "Y"]
-    );
-    const inverseOp = type.invert(op);
-    expect(inverseOp).toStrictEqual(opAddRange(["a", 1], ["X", "Y"]));
-  });
-  test("With move-range to right returns inverse move-range", () => {
-    const op = opMoveRange(["a", [{ index: 1, length: 2 }, 4]]);
-    const inverseOp = type.invert(op);
-    const expectedOp = opMoveRange(["a", [{ index: 2, length: 2 }, 1]]);
-    expect(inverseOp).toStrictEqual(expectedOp);
-  });
-  test("With move-range to left returns inverse move-range", () => {
-    const op = opMoveRange(["a", [{ index: 2, length: 2 }, 1]]);
-    const inverseOp = type.invert(op);
-    const expectedOp = opMoveRange(["a", [{ index: 1, length: 2 }, 4]]);
-    expect(inverseOp).toStrictEqual(expectedOp);
-  });
-});
 
 describe("apply", () => {
   test("With none returns original object", () => {
@@ -170,5 +91,50 @@ describe("apply", () => {
     const input = [1, 2];
     const clone = type.apply(input, [opAdd([2], 3), opAdd([3], 4)]);
     expect(clone).toStrictEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("invertWithDoc", () => {
+  test("With add returns inverse remove", () => {
+    const op = opAdd(["a", "b"], "d");
+    const opInverted = type.invertWithDoc(op, {});
+    expect(opInverted).toStrictEqual(opRemove(["a", "b"]));
+  });
+  test("With add-range returns inverse remove-range", () => {
+    const op = opAddRange(["a", 1], ["c", "d"]);
+    const opInverted = type.invertWithDoc(op, {});
+    expect(opInverted).toStrictEqual(
+      opRemoveRange(["a", { index: 1, length: 2 }])
+    );
+  });
+  test("With replace returns inverse replace", () => {
+    const doc = { a: { b: "c" } };
+    const op = opReplace(["a", "b"], "d", 3);
+    const opInverted = type.invertWithDoc(op, doc);
+    expect(opInverted).toStrictEqual(opReplace(["a", "b"], "c", 3));
+  });
+  test("With remove returns inverse add", () => {
+    const doc = { a: { b: "X" } };
+    const op = opRemove(["a", "b"], 3);
+    const inverseOp = type.invertWithDoc(op, doc);
+    expect(inverseOp).toStrictEqual(opAdd(["a", "b"], "X", 3));
+  });
+  test("With remove-range returns inverse add", () => {
+    const doc = { a: [1, 2, 3, 4] };
+    const op = opRemoveRange(["a", { index: 1, length: 2 }], 3);
+    const inverseOp = type.invertWithDoc(op, doc);
+    expect(inverseOp).toStrictEqual(opAddRange(["a", 1], [2, 3], 3));
+  });
+  test("With move-range to right returns inverse move-range", () => {
+    const op = opMoveRange(["a", [{ index: 1, length: 2 }, 4]], 3);
+    const inverseOp = type.invertWithDoc(op, {});
+    const expectedOp = opMoveRange(["a", [{ index: 2, length: 2 }, 1]], 3);
+    expect(inverseOp).toStrictEqual(expectedOp);
+  });
+  test("With move-range to left returns inverse move-range", () => {
+    const op = opMoveRange(["a", [{ index: 2, length: 2 }, 1]], 3);
+    const inverseOp = type.invertWithDoc(op, {});
+    const expectedOp = opMoveRange(["a", [{ index: 1, length: 2 }, 4]], 3);
+    expect(inverseOp).toStrictEqual(expectedOp);
   });
 });
