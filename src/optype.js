@@ -5,7 +5,6 @@ export const OpTypes = {
   REPLACE: "replace",
   REMOVE: "remove",
   REMOVE_RANGE: "remove_range",
-  MOVE_RANGE: "move_range",
 };
 
 export function opAdd(path, value, transaction) {
@@ -26,10 +25,6 @@ export function opRemove(path, transaction) {
 
 export function opRemoveRange(path, transaction) {
   return createOp(OpTypes.REMOVE_RANGE, path, transaction);
-}
-
-export function opMoveRange(path, transaction) {
-  return createOp(OpTypes.MOVE_RANGE, path, transaction);
 }
 
 function createOp(op, path, transaction) {
@@ -78,18 +73,6 @@ OpType.prototype.invertWithDoc = function (op, doc) {
         getValue(doc, op.path),
         op.transaction
       );
-    case OpTypes.MOVE_RANGE: {
-      const [r0, p0] = arrayLast(op.path);
-      let r1, p1;
-      if (r0.index < p0) {
-        r1 = { index: p0 - r0.length, length: r0.length };
-        p1 = r0.index;
-      } else {
-        r1 = { index: p0, length: r0.length };
-        p1 = r0.index + r0.length;
-      }
-      return opMoveRange([...op.path.slice(0, -1), [r1, p1]], op.transaction);
-    }
     default:
       throw new Error(`Unknown operation op '${op.op}'`);
   }
@@ -114,8 +97,6 @@ function applyOpArray(obj, op) {
         return arrayRemove(obj, index);
       case OpTypes.REMOVE_RANGE:
         return arrayRemoveRange(obj, index);
-      case OpTypes.MOVE_RANGE:
-        return arrayMoveRange(obj, index);
       default:
         throw new Error(`Unknown operation op '${op.op}'`);
     }
@@ -184,30 +165,6 @@ function arrayRemove(array, index) {
     throw new Error(`To remove, index must be a number!`);
   }
   return [...array.slice(0, index), ...array.slice(index + 1)];
-}
-
-function arrayMoveRange(array, ranges) {
-  const [range, pos] = ranges;
-
-  if (pos >= range.index && pos < range.index.length) {
-    throw new Error(`Can't move range inside itself!`);
-  }
-
-  if (range.index < pos) {
-    return [
-      ...array.slice(0, range.index),
-      ...array.slice(range.index + range.length, pos),
-      ...array.slice(range.index, range.index + range.length),
-      ...array.slice(pos, array.length),
-    ];
-  } else {
-    return [
-      ...array.slice(0, pos),
-      ...array.slice(range.index, range.index + range.length),
-      ...array.slice(pos, range.index),
-      ...array.slice(range.index + range.length, array.length),
-    ];
-  }
 }
 
 function createOpDescend(operation) {

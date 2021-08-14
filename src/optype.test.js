@@ -4,7 +4,6 @@ import {
   opReplace,
   opRemove,
   opRemoveRange,
-  opMoveRange,
   OpType,
 } from "./optype.js";
 
@@ -66,22 +65,6 @@ describe("apply", () => {
     const clone = type.apply(input, opRemoveRange([{ index: 1, length: 2 }]));
     expect(clone).toStrictEqual([1, 4, 5]);
   });
-  test("With move-range to right", () => {
-    const input = [1, 2, 3, 4, 5, 6];
-    const clone = type.apply(
-      input,
-      opMoveRange([[{ index: 1, length: 2 }, 4]])
-    );
-    expect(clone).toStrictEqual([1, 4, 2, 3, 5, 6]);
-  });
-  test("With move-range to left", () => {
-    const input = [1, 4, 2, 3, 5, 6];
-    const clone = type.apply(
-      input,
-      opMoveRange([[{ index: 2, length: 2 }, 1]])
-    );
-    expect(clone).toStrictEqual([1, 2, 3, 4, 5, 6]);
-  });
   test("With multiple operations applies after each other", () => {
     const input = { a: 1, b: 2 };
     const clone = type.apply(input, [opReplace(["a"], 3), opReplace(["b"], 4)]);
@@ -124,17 +107,5 @@ describe("invertWithDoc", () => {
     const op = opRemoveRange(["a", { index: 1, length: 2 }], 3);
     const inverseOp = type.invertWithDoc(op, doc);
     expect(inverseOp).toStrictEqual(opAddRange(["a", 1], [2, 3], 3));
-  });
-  test("With move-range to right returns inverse move-range", () => {
-    const op = opMoveRange(["a", [{ index: 1, length: 2 }, 4]], 3);
-    const inverseOp = type.invertWithDoc(op, {});
-    const expectedOp = opMoveRange(["a", [{ index: 2, length: 2 }, 1]], 3);
-    expect(inverseOp).toStrictEqual(expectedOp);
-  });
-  test("With move-range to left returns inverse move-range", () => {
-    const op = opMoveRange(["a", [{ index: 2, length: 2 }, 1]], 3);
-    const inverseOp = type.invertWithDoc(op, {});
-    const expectedOp = opMoveRange(["a", [{ index: 1, length: 2 }, 4]], 3);
-    expect(inverseOp).toStrictEqual(expectedOp);
   });
 });
