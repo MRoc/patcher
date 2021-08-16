@@ -1,21 +1,8 @@
-import { OpType, OpTypes } from "./optype";
+import { OpType, OpTypes, getValue } from "./optype";
 
 const type = new OpType();
 
-export { OpType };
-
-export function getValue(obj, path) {
-  const property = path[0];
-  if (path.length === 1) {
-    if (Array.isArray(obj) && typeof property === "object") {
-      return obj.slice(property.index, property.index + property.length);
-    } else {
-      return obj[property];
-    }
-  } else {
-    return getValue(obj[property], path.slice(1));
-  }
-}
+export { OpType, getValue };
 
 export function emptyHistory() {
   return createHistory();
@@ -77,7 +64,7 @@ export function combine(
   return { ...state, history, transaction, version };
 }
 
-export function nextVersion(state, op) {
+function nextVersion(state, op) {
   if (!Array.isArray(op)) {
     op = [op];
   }
