@@ -62,7 +62,6 @@ Basic operations include:
 * replace: `opReplace` replaces an element in an arrray or sets an property on an object.
 * remove: `opRemove` removes an element from an array or an property from an object.
 * removeRange: `opRemoveRange` removes an range for an array. Note that the last path element must be *range*.
-* moveRange: `opMoveRange` moves a range in an array. Note that the last path element must be a array of one source *range*s and one destination *number*.
 
 Notes:
 
@@ -98,9 +97,10 @@ Note: Operations, current transaction and version is added to state:
 ```
 {
     property: "value",
-    history: [
-        { op: "add", path: ["property"], value: "value", transaction: 0 }
-    ],
+    history: {
+        ops: [{ op: "add", path: ["property"], value: "value", transaction: 0 }],
+        opsInverted: [{ op: "remove", path: ["property"], transaction: 0 }],
+    },
     transaction: 0,
     version: 1
 }
@@ -178,20 +178,6 @@ const nextState = patch(state, op);
 // [1, 4, 5]
 ```
 
-### Move Range
-
-Move range in an array:
-
-```
-import { opMoveRange, patch } from "@mroc/patcher";
-
-const state = [1, 2, 3, 4, 5];
-const op = opMoveRange([[{ index: 1, length: 2 }, 4]]);
-const nextState = patch(state, op);
-
-// [1, 4, 2, 3, 5]
-```
-
 ### Multiple operations at once
 
 Patch also supports multiple operations at once. In that case, all operations will end
@@ -212,13 +198,7 @@ const nextState = patch(state, [
 
 ## Concepts
 
-* **Enrich**: All operations can be undone by creating a inverse operation using the `inverse`
-function. This is usually done internally in `undo` and `redo`. An interesting fact is that
-certain operations need previous state to be undone, for example `replace` because obviously
-after replace, the previous value is lost. For that, operations are *enriched* before placed
-into the history using the `enrich` function. This function adds a `previous` property to
-all operations that require it.
 * **State**: The document state that should be transformed by operations.
 * **Version**: Total number of times the state was transformed by either patch, undo or redo.
-* **History**: List of operations applied on a state, grouped by transaction, required for undo/redo.
+* **History**: List of operations and inverse operations applied on a state, grouped by transaction, required for undo/redo.
 * **Transaction**: Number of transaction that identifies all operations in history applied to State.
