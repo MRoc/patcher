@@ -7,36 +7,28 @@ export const OpTypes = {
   REMOVE_RANGE: "remove_range",
 };
 
-export function opAdd(path, value, transaction) {
-  return { ...createOp(OpTypes.ADD, path, transaction), value };
-}
-
-export function opAddRange(path, value, transaction) {
-  return { ...createOp(OpTypes.ADD_RANGE, path, transaction), value };
-}
-
-export function opReplace(path, value, transaction) {
-  return { ...createOp(OpTypes.REPLACE, path, transaction), value };
-}
-
-export function opRemove(path, transaction) {
-  return createOp(OpTypes.REMOVE, path, transaction);
-}
-
-export function opRemoveRange(path, transaction) {
-  return createOp(OpTypes.REMOVE_RANGE, path, transaction);
-}
-
-function createOp(op, path, transaction) {
-  const result = { op, path };
-  if (transaction !== undefined) {
-    result.transaction = transaction;
-  }
-  return result;
-}
-
 // https://github.com/Teamwork/ot-docs
 export function OpType() {}
+
+OpType.prototype.insertOp = function (path, value, transaction) {
+  return { ...createOp(OpTypes.ADD, path, transaction), value };
+};
+
+OpType.prototype.insertRangeOp = function (path, value, transaction) {
+  return { ...createOp(OpTypes.ADD_RANGE, path, transaction), value };
+};
+
+OpType.prototype.replaceOp = function (path, value, transaction) {
+  return { ...createOp(OpTypes.REPLACE, path, transaction), value };
+};
+
+OpType.prototype.removeOp = function (path, transaction) {
+  return createOp(OpTypes.REMOVE, path, transaction);
+};
+
+OpType.prototype.removeRangeOp = function (path, transaction) {
+  return createOp(OpTypes.REMOVE_RANGE, path, transaction);
+};
 
 OpType.prototype.apply = function (doc, op) {
   if (!op) {
@@ -57,18 +49,18 @@ OpType.prototype.apply = function (doc, op) {
 OpType.prototype.invertWithDoc = function (op, doc) {
   switch (op.op) {
     case OpTypes.ADD:
-      return opRemove(op.path, op.transaction);
+      return this.removeOp(op.path, op.transaction);
     case OpTypes.ADD_RANGE:
-      return opRemoveRange([
+      return this.removeRangeOp([
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
       ]);
     case OpTypes.REPLACE:
-      return opReplace(op.path, getValue(doc, op.path), op.transaction);
+      return this.replaceOp(op.path, getValue(doc, op.path), op.transaction);
     case OpTypes.REMOVE:
-      return opAdd(op.path, getValue(doc, op.path), op.transaction);
+      return this.insertOp(op.path, getValue(doc, op.path), op.transaction);
     case OpTypes.REMOVE_RANGE:
-      return opAddRange(
+      return this.insertRangeOp(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
         getValue(doc, op.path),
         op.transaction
@@ -185,6 +177,14 @@ export function getValue(obj, path) {
   } else {
     return getValue(obj[property], path.slice(1));
   }
+}
+
+function createOp(op, path, transaction) {
+  const result = { op, path };
+  if (transaction !== undefined) {
+    result.transaction = transaction;
+  }
+  return result;
 }
 
 function arrayLast(array) {

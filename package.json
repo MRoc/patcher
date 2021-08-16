@@ -5,7 +5,7 @@
   "main": "lib/index.js",
   "scripts": {
     "test": "jest --watch",
-    "build": "./node_modules/.bin/babel src/index.js --out-dir lib",
+    "build": "npx ./node_modules/.bin/babel src/index.js --out-dir lib",
     "lint": "eslint ."
   },
   "repository": {

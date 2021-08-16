@@ -1,33 +1,8 @@
-// Overlaps with https://tools.ietf.org/html/rfc6902
-
-import {
-  OpType,
-  OpTypes,
-  opAdd,
-  opAddRange,
-  opReplace,
-  opReplaceEnriched,
-  opRemove,
-  opRemoveEnriched,
-  opRemoveRange,
-  opRemoveRangeEnriched,
-  opMoveRange,
-} from "./optype";
+import { OpType, OpTypes } from "./optype";
 
 const type = new OpType();
 
-export {
-  opAdd,
-  opAddRange,
-  opReplace,
-  opReplaceEnriched,
-  opRemove,
-  opRemoveEnriched,
-  opRemoveRange,
-  opRemoveRangeEnriched,
-  opMoveRange,
-  type,
-};
+export { OpType };
 
 export function getValue(obj, path) {
   const property = path[0];
@@ -69,10 +44,10 @@ export function patchWithOps(state, op, newTransaction) {
     } else {
       transaction++;
       history = discardFutureOps(history, transaction);
-      history = addOp(state, history, transaction, op);
+      history = insertOp(state, history, transaction, op);
     }
   } else {
-    history = addOp(state, history, transaction, op);
+    history = insertOp(state, history, transaction, op);
   }
 
   return [
@@ -226,7 +201,7 @@ export function discardFutureOps(history, transaction) {
   };
 }
 
-export function addOp(state, history, transaction, op) {
+export function insertOp(state, history, transaction, op) {
   if (!Array.isArray(op)) {
     op = [op];
   }
