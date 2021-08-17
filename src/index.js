@@ -153,16 +153,7 @@ Patcher.prototype.canMergeOp = function (history, transaction, op) {
     return false;
   }
 
-  const lastOp = lastOps[0];
-  if (lastOp.op !== OpTypes.REPLACE) {
-    return false;
-  }
-
-  if (!arrayEquals(lastOp.path, op.path)) {
-    return false;
-  }
-
-  return true;
+  return this.type.composeSimilar(lastOps[0], op) !== null;
 };
 
 Patcher.prototype.mergeLastOp = function (history, op) {
@@ -174,9 +165,10 @@ Patcher.prototype.mergeLastOp = function (history, op) {
   }
 
   const lastOp = arrayLast(history.ops);
+  const mergedOp = this.type.composeSimilar(lastOp, op);
 
   return {
-    ops: [...arraySkipLast(history.ops), { ...lastOp, value: op.value }],
+    ops: [...arraySkipLast(history.ops), mergedOp],
     opsInverted: history.opsInverted,
   };
 };

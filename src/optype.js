@@ -70,8 +70,35 @@ OpType.prototype.invertWithDoc = function (op, doc) {
   }
 };
 
+OpType.prototype.compose = function (op1, op2) {
+  if (!Array.isArray(op1)) {
+    op1 = [op1];
+  }
+  if (!Array.isArray(op2)) {
+    op2 = [op2];
+  }
+  // Default compose is concatenating operations
+  return [...op1, ...op2];
+};
+
 OpType.prototype.composeSimilar = function (op1, op2) {
-  // TODO Should do what canMerge does
+  if (!Array.isArray(op1)) {
+    op1 = [op1];
+  }
+  if (!Array.isArray(op2)) {
+    op2 = [op2];
+  }
+
+  // Compose two replace on the same path by just taking the second operation.
+  if (
+    op1.length === 1 &&
+    op2.length === 1 &&
+    op1[0].op === OpTypes.REPLACE &&
+    op2[0].op === OpTypes.REPLACE &&
+    arrayEquals(op1[0].path, op2[0].path)
+  ) {
+    return op2[0];
+  }
   return null;
 };
 
@@ -193,4 +220,11 @@ function arrayLast(array) {
 
 function arraySkipLast(array) {
   return array.slice(0, array.length - 1);
+}
+
+function arrayEquals(array0, array1) {
+  return (
+    array0.length === array1.length &&
+    array0.every((value, index) => value === array1[index])
+  );
 }

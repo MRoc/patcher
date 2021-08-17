@@ -71,7 +71,10 @@ describe("apply", () => {
   });
   test("With succeeding adds adds one after another", () => {
     const input = [1, 2];
-    const clone = type.apply(input, [type.insertOp([2], 3), type.insertOp([3], 4)]);
+    const clone = type.apply(input, [
+      type.insertOp([2], 3),
+      type.insertOp([3], 4),
+    ]);
     expect(clone).toStrictEqual([1, 2, 3, 4]);
   });
 });
@@ -106,5 +109,47 @@ describe("invertWithDoc", () => {
     const op = type.removeRangeOp(["a", { index: 1, length: 2 }], 3);
     const inverseOp = type.invertWithDoc(op, doc);
     expect(inverseOp).toStrictEqual(type.insertRangeOp(["a", 1], [2, 3], 3));
+  });
+});
+
+describe("compose", () => {
+  test("With two single operations returns concatenated", () => {
+    const op1 = type.insertOp(["a"], 0, 0);
+    const op2 = type.replaceOp(["a"], 1, 1);
+    const op3 = type.compose(op1, op2);
+    expect(op3).toStrictEqual([op1, op2]);
+  });
+  test("With two array operations returns concatenated", () => {
+    const op1 = type.insertOp(["a"], 0, 0);
+    const op2 = type.replaceOp(["a"], 1, 1);
+    const op3 = type.compose([op1], [op2]);
+    expect(op3).toStrictEqual([op1, op2]);
+  });
+});
+
+describe("composeSimilar", () => {
+  test("With last operation not being replace returns false", () => {
+    const op1 = type.insertOp(["a"], 0, 0);
+    const op2 = type.replaceOp(["a"], 1, 1);
+    const op3 = type.composeSimilar(op1, op2);
+    expect(op3).toBe(null);
+  });
+  test("With last operation path not equal returns false", () => {
+    const op1 = type.insertOp(["a"], 0, 0);
+    const op2 = type.insertOp(["c"], 1, 1);
+    const op3 = type.composeSimilar(op1, op2);
+    expect(op3).toBe(null);
+  });
+  test("With two operations returns false", () => {
+    const op1 = [type.insertOp(["a"], 0, 0), type.insertOp(["a"], 0, 0)];
+    const op2 = type.insertOp(["a"], 1, 1);
+    const op3 = type.composeSimilar(op1, op2);
+    expect(op3).toBe(null);
+  });
+  test("With replace on same path and single op returns true", () => {
+    const op1 = type.insertOp(["a", "b"], 0, 0);
+    const op2 = type.insertOp(["a", "b"], 1, 1);
+    const op3 = type.composeSimilar(op1, op2);
+    expect(op3).toBe(null);
   });
 });
