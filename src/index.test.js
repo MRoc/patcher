@@ -67,14 +67,14 @@ describe("discardFutureOps", () => {
   test("With history removes operations from the future", () => {
     const history = createHistory(
       [
-        type.replaceOp(["a", "b"], 1, 0),
-        type.replaceOp(["a", "b"], 2, 1),
-        type.replaceOp(["a", "b"], 3, 2),
+        type.replaceOp(["a", "b"], 1),
+        type.replaceOp(["a", "b"], 2),
+        type.replaceOp(["a", "b"], 3),
       ],
       [
-        type.replaceOp(["a", "b"], 0, 0),
-        type.replaceOp(["a", "b"], 0, 1),
-        type.replaceOp(["a", "b"], 0, 2),
+        type.replaceOp(["a", "b"], 0),
+        type.replaceOp(["a", "b"], 0),
+        type.replaceOp(["a", "b"], 0),
       ]
     );
     const newHistory = patcher.discardFutureOps(history, 1);
@@ -183,9 +183,12 @@ describe("patch", () => {
     expect(clone.history.opsInverted.length).toBe(1);
     expect(clone.transaction).toBe(0);
   });
-  test("With two sets, increments version twice", () => {
-    const clone = patcher.patch({}, [type.insertOp(["a"], 2), type.insertOp(["a"], 2)]);
-    expect(clone.version).toBe(2);
+  test("With two sets, increments version", () => {
+    const clone = patcher.patch({}, [
+      type.insertOp(["a"], 2),
+      type.insertOp(["a"], 2),
+    ]);
+    expect(clone.version).toBe(1);
   });
 });
 

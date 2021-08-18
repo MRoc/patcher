@@ -10,24 +10,24 @@ export const OpTypes = {
 // https://github.com/Teamwork/ot-docs
 export function OpType() {}
 
-OpType.prototype.insertOp = function (path, value, transaction) {
-  return { ...createOp(OpTypes.ADD, path, transaction), value };
+OpType.prototype.insertOp = function (path, value) {
+  return { ...createOp(OpTypes.ADD, path), value };
 };
 
-OpType.prototype.insertRangeOp = function (path, value, transaction) {
-  return { ...createOp(OpTypes.ADD_RANGE, path, transaction), value };
+OpType.prototype.insertRangeOp = function (path, value) {
+  return { ...createOp(OpTypes.ADD_RANGE, path), value };
 };
 
-OpType.prototype.replaceOp = function (path, value, transaction) {
-  return { ...createOp(OpTypes.REPLACE, path, transaction), value };
+OpType.prototype.replaceOp = function (path, value) {
+  return { ...createOp(OpTypes.REPLACE, path), value };
 };
 
-OpType.prototype.removeOp = function (path, transaction) {
-  return createOp(OpTypes.REMOVE, path, transaction);
+OpType.prototype.removeOp = function (path) {
+  return createOp(OpTypes.REMOVE, path);
 };
 
-OpType.prototype.removeRangeOp = function (path, transaction) {
-  return createOp(OpTypes.REMOVE_RANGE, path, transaction);
+OpType.prototype.removeRangeOp = function (path) {
+  return createOp(OpTypes.REMOVE_RANGE, path);
 };
 
 OpType.prototype.apply = function (doc, op) {
@@ -47,23 +47,25 @@ OpType.prototype.apply = function (doc, op) {
 };
 
 OpType.prototype.invertWithDoc = function (op, doc) {
+  if (Array.isArray(op)) {
+    return op.map((o) => this.invertWithDoc(o, doc));
+  }
   switch (op.op) {
     case OpTypes.ADD:
-      return this.removeOp(op.path, op.transaction);
+      return this.removeOp(op.path);
     case OpTypes.ADD_RANGE:
       return this.removeRangeOp([
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
       ]);
     case OpTypes.REPLACE:
-      return this.replaceOp(op.path, getValue(doc, op.path), op.transaction);
+      return this.replaceOp(op.path, getValue(doc, op.path));
     case OpTypes.REMOVE:
-      return this.insertOp(op.path, getValue(doc, op.path), op.transaction);
+      return this.insertOp(op.path, getValue(doc, op.path));
     case OpTypes.REMOVE_RANGE:
       return this.insertRangeOp(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
-        getValue(doc, op.path),
-        op.transaction
+        getValue(doc, op.path)
       );
     default:
       throw new Error(`Unknown operation op '${op.op}'`);
@@ -206,12 +208,8 @@ export function getValue(obj, path) {
   }
 }
 
-function createOp(op, path, transaction) {
-  const result = { op, path };
-  if (transaction !== undefined) {
-    result.transaction = transaction;
-  }
-  return result;
+function createOp(op, path) {
+  return { op, path };
 }
 
 function arrayLast(array) {

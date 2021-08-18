@@ -33,10 +33,10 @@ Patcher.prototype.patchWithOps = function (state, op, newTransaction) {
     } else {
       transaction++;
       history = this.discardFutureOps(history, transaction);
-      history = this.insertOp(state, history, transaction, op);
+      history = this.insertOp(state, history, op);
     }
   } else {
-    history = this.insertOp(state, history, transaction, op);
+    history = this.insertOp(state, history, op);
   }
 
   return [
@@ -67,13 +67,10 @@ export function combine(
 }
 
 function nextVersion(state, op) {
-  if (!Array.isArray(op)) {
-    op = [op];
-  }
   if (state.version === undefined) {
     state.version = defaultVersion;
   }
-  return state.version + op.length;
+  return state.version + 1;
 }
 
 Patcher.prototype.hasUndo = function (state) {
@@ -87,29 +84,27 @@ Patcher.prototype.undo = function (state) {
 Patcher.prototype.undoWithOps = function (state) {
   const transaction = state.transaction;
 
-  const operations = state.history.opsInverted
-    .filter((op) => op.transaction === transaction)
-    .reverse();
+  const op = state.history.opsInverted[transaction];
 
-  if (operations.length === 0) {
+  if (!op) {
     throw new Error(`Nothing to undo! (transaction=${transaction})`);
   }
 
   return [
     combine(
-      this.type.apply(state, operations),
+      this.type.apply(state, op),
       state.history,
       transaction - 1,
-      nextVersion(state, operations)
+      nextVersion(state, op)
     ),
-    operations,
+    op,
   ];
 };
 
 Patcher.prototype.hasRedo = function (state) {
   return (
     state.history.ops.length > 0 &&
-    state.transaction < arrayMax(state.history.ops.map((op) => op.transaction))
+    state.transaction < state.history.ops.length - 1
   );
 };
 
@@ -120,26 +115,25 @@ Patcher.prototype.redo = function (state) {
 Patcher.prototype.redoWithOps = function (state) {
   const transaction = state.transaction + 1;
 
-  const operations = state.history.ops.filter(
-    (op) => op.transaction === transaction
-  );
+  const op = state.history.ops[transaction];
 
-  if (operations.length === 0) {
+  if (!op) {
     throw new Error(`Nothing to redo! (transaction=${transaction})`);
   }
 
   return [
     combine(
-      this.type.apply(state, operations),
+      this.type.apply(state, op),
       state.history,
       transaction,
-      nextVersion(state, operations)
+      nextVersion(state, op)
     ),
-    operations,
+    op,
   ];
 };
 
 Patcher.prototype.canMergeOp = function (history, transaction, op) {
+  // TODO Can't use isArray on op!!!
   if (Array.isArray(op)) {
     if (op.length === 1) {
       op = op[0];
@@ -148,6 +142,7 @@ Patcher.prototype.canMergeOp = function (history, transaction, op) {
     }
   }
 
+  // TODO Can't compare transactions
   const lastOps = history.ops.filter((op) => op.transaction === transaction);
   if (lastOps.length !== 1) {
     return false;
@@ -157,6 +152,7 @@ Patcher.prototype.canMergeOp = function (history, transaction, op) {
 };
 
 Patcher.prototype.mergeLastOp = function (history, op) {
+  // TODO Can't use isArray on op
   if (Array.isArray(op)) {
     if (op.length !== 1) {
       throw new Error(`Merge only works on single operations!`);
@@ -175,29 +171,17 @@ Patcher.prototype.mergeLastOp = function (history, op) {
 
 Patcher.prototype.discardFutureOps = function (history, transaction) {
   return {
-    ops: history.ops.filter((op) => op.transaction < transaction),
-    opsInverted: history.opsInverted.filter(
-      (op) => op.transaction < transaction
-    ),
+    ops: history.ops.slice(0, transaction),
+    opsInverted: history.opsInverted.slice(0, transaction),
   };
 };
 
-Patcher.prototype.insertOp = function (state, history, transaction, op) {
-  if (!Array.isArray(op)) {
-    op = [op];
-  }
-
-  const ops = op.map((o) => {
-    return { ...o, transaction };
-  });
-
-  const opsInverted = op.map((o) => {
-    return { ...this.type.invertWithDoc(o, state), transaction };
-  });
-
+Patcher.prototype.insertOp = function (state, history, op) {
+  // TODO If op is array, invert must also be reversed!
+  const opInverted = this.type.invertWithDoc(op, state);
   return {
-    ops: [...history.ops, ...ops],
-    opsInverted: [...history.opsInverted, ...opsInverted],
+    ops: [...history.ops, op],
+    opsInverted: [...history.opsInverted, opInverted],
   };
 };
 
