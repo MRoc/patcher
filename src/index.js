@@ -1,4 +1,4 @@
-import { OpType, OpTypes, getValue } from "./optype";
+import { OpType, getValue } from "./optype";
 
 export { OpType, getValue };
 
@@ -29,14 +29,14 @@ Patcher.prototype.patchWithOps = function (state, op, newTransaction) {
   if (newTransaction || transaction === defaultTransaction) {
     if (this.canMergeOp(history, transaction, op)) {
       history = this.discardFutureOps(history, transaction + 1);
-      history = this.mergeLastOp(history, op);
+      history = this.mergeLastOp(state, history, op, false);
     } else {
       transaction++;
       history = this.discardFutureOps(history, transaction);
       history = this.insertOp(state, history, op);
     }
   } else {
-    history = this.insertOp(state, history, op);
+    history = this.mergeLastOp(state, history, op, true);
   }
 
   return [
@@ -133,39 +133,30 @@ Patcher.prototype.redoWithOps = function (state) {
 };
 
 Patcher.prototype.canMergeOp = function (history, transaction, op) {
-  // TODO Can't use isArray on op!!!
-  if (Array.isArray(op)) {
-    if (op.length === 1) {
-      op = op[0];
-    } else {
-      return false;
-    }
-  }
-
-  // TODO Can't compare transactions
-  const lastOps = history.ops.filter((op) => op.transaction === transaction);
-  if (lastOps.length !== 1) {
+  if (transaction < 0 || transaction >= history.ops.length) {
     return false;
   }
 
-  return this.type.composeSimilar(lastOps[0], op) !== null;
+  const lastOps = history.ops[transaction];
+  return this.type.composeSimilar(lastOps, op) !== null;
 };
 
-Patcher.prototype.mergeLastOp = function (history, op) {
-  // TODO Can't use isArray on op
-  if (Array.isArray(op)) {
-    if (op.length !== 1) {
-      throw new Error(`Merge only works on single operations!`);
-    }
-    op = op[0];
-  }
+Patcher.prototype.mergeLastOp = function (state, history, op, forceCompose) {
+  const opInverted = this.type.invertWithDoc(op, state);
+
+  const composeFunc = forceCompose
+    ? this.type.compose
+    : this.type.composeSimilar;
 
   const lastOp = arrayLast(history.ops);
-  const mergedOp = this.type.composeSimilar(lastOp, op);
+  const mergedOp = composeFunc(lastOp, op);
+
+  const lastOpInverted = arrayLast(history.opsInverted);
+  const mergedOpInverted = composeFunc(opInverted, lastOpInverted);
 
   return {
     ops: [...arraySkipLast(history.ops), mergedOp],
-    opsInverted: history.opsInverted,
+    opsInverted: [...arraySkipLast(history.opsInverted), mergedOpInverted],
   };
 };
 
@@ -177,7 +168,6 @@ Patcher.prototype.discardFutureOps = function (history, transaction) {
 };
 
 Patcher.prototype.insertOp = function (state, history, op) {
-  // TODO If op is array, invert must also be reversed!
   const opInverted = this.type.invertWithDoc(op, state);
   return {
     ops: [...history.ops, op],
@@ -191,15 +181,4 @@ function arrayLast(array) {
 
 function arraySkipLast(array) {
   return array.slice(0, array.length - 1);
-}
-
-function arrayEquals(array0, array1) {
-  return (
-    array0.length === array1.length &&
-    array0.every((value, index) => value === array1[index])
-  );
-}
-
-function arrayMax(array) {
-  return Math.max(...array);
 }

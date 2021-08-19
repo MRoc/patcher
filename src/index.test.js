@@ -44,9 +44,9 @@ describe("canMergeOp", () => {
     expect(canMerge).toBe(true);
   });
   test("With replace on same path in array and single op returns true", () => {
-    const history = createHistory([type.replaceOp(["b", "c"], 1, 0)]);
+    const history = createHistory([type.replaceOp(["b", "c"], 1)]);
     const transaction = 0;
-    const operation = [type.replaceOp(["b", "c"], 2, 0)];
+    const operation = [type.replaceOp(["b", "c"], 2)];
     const canMerge = patcher.canMergeOp(history, transaction, operation);
     expect(canMerge).toBe(true);
   });
@@ -54,11 +54,18 @@ describe("canMergeOp", () => {
 
 describe("mergeLastOp", () => {
   test("With last operation merge-able, overwrites value", () => {
-    const history = createHistory([type.replaceOp(["a", "b"], 1, 0)]);
-    const operation = type.replaceOp(["a", "b"], 2, 0);
-    const mergedHistory = patcher.mergeLastOp(history, operation);
+    const state = { a: { b: 1 } };
+    const history = createHistory(
+      [type.replaceOp(["a", "b"], 1)],
+      [type.replaceOp(["a", "b"], 0)]
+    );
+    const operation = type.replaceOp(["a", "b"], 2);
+    const mergedHistory = patcher.mergeLastOp(state, history, operation, false);
     expect(mergedHistory).toStrictEqual(
-      createHistory([type.replaceOp(["a", "b"], 2, 0)])
+      createHistory(
+        [type.replaceOp(["a", "b"], 2)],
+        [type.replaceOp(["a", "b"], 0)]
+      )
     );
   });
 });
