@@ -13,12 +13,14 @@ The underlying operations share similarities with JSON Patch (RFC 6902).
 Example reducer using *Patcher*:
 
 ```
-import { opReplace, patch, undo, redo } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
 export const reducer = function (state = initialState, action) {
   switch (action.type) {
     case ActionTypes.SET_TEXT_TO_HELLO_WORLD:
-      return patch(state, opReplace(["text"], "Hello World"), true);
+      return patcher.patch(state, type.replaceOp(["text"], "Hello World"), true);
     case ActionTypes.UNDO:
         return undo(state);
     case ActionTypes.REDO:
@@ -42,14 +44,16 @@ function patch(state, op, newTransaction)
 Using `hasUndo`, `undo`, `hasRedo` and `redo`, the previous transaction can be reverted or an undone be replayed:
 
 ```
-import { hasUndo, hasRedo, undo, redo } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
-if (hasUndo(state0)) {
-    return undo(state0);
+if (patcher.hasUndo(state0)) {
+    return patcher.undo(state0);
 }
 
-if (hasRedo(state0)) {
-    return redo(state0);
+if (patcher.hasRedo(state0)) {
+    return patcher.redo(state0);
 }
 ```
 
@@ -57,11 +61,11 @@ if (hasRedo(state0)) {
 
 Basic operations include:
 
-* add: `opAdd` adds a value to an array or a property to an object.
-* addRange: `opAddRange` inserts an array of values into another array.
-* replace: `opReplace` replaces an element in an arrray or sets an property on an object.
-* remove: `opRemove` removes an element from an array or an property from an object.
-* removeRange: `opRemoveRange` removes an range for an array. Note that the last path element must be *range*.
+* insert: `insertOp` inserts a value to an array or a property to an object.
+* insertRange: `insertRangeOp` inserts an array of values into another array.
+* replace: `replaceOp` replaces an element in an arrray or sets an property on an object.
+* remove: `removeOp` removes an element from an array or an property from an object.
+* removeRange: `removeRangeOp` removes an range for an array. Note that the last path element must be *range*.
 
 Notes:
 
@@ -70,14 +74,16 @@ Notes:
 * If a *range* into an array is specified, it must be an object of form `{ index: 2, length: 3}`.
 * Multiple succeeding `replace` operations might be grouped in a single transaction if the last transaction only consistes out of a single `replace` on the same path.
 
-### Add
+### Insert
 
-Add property to object:
+Insert property to object:
 
 ```
-import { opAdd, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
-const state = patch ({ }, opAdd(["property"], "value");
+const state = patcher.patch({ }, type.insertOp(["property"], "value");
 
 // { "property": "value" }
 ```
@@ -85,9 +91,11 @@ const state = patch ({ }, opAdd(["property"], "value");
 Inserting value into array:
 
 ```
-import { opAdd, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
-const state = patch([1, 2, 3], opAdd([1], 4));
+const state = patcher.patch([1, 2, 3], type.insertOp([1], 4));
 
 // [1, 2, 4, 3]
 ```
@@ -98,24 +106,26 @@ Note: Operations, current transaction and version is added to state:
 {
     property: "value",
     history: {
-        ops: [{ op: "add", path: ["property"], value: "value", transaction: 0 }],
-        opsInverted: [{ op: "remove", path: ["property"], transaction: 0 }],
+        ops: [{ op: "insert", path: ["property"], value: "value" }],
+        opsInverted: [{ op: "remove", path: ["property"]],
     },
     transaction: 0,
     version: 1
 }
 ```
 
-### Add Range
+### Insert Range
 
 Inserts an array of values into another array:
 
 ```
-import { opAddRange, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
 const state = { values: [1, 2, 3] };
-const op = opAddRange(["values", 1], [4, 5]);
-const nextState = patch(state, op);
+const op = type.insertRange(["values", 1], [4, 5]);
+const nextState = patcher.patch(state, op);
 
 // [1, 2, 4, 5, 3]
 ```
@@ -125,9 +135,11 @@ const nextState = patch(state, op);
 Replace a property value in an object:
 
 ```
-import { opReplace, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
-const state = patch({ a: 2 }, opReplace(["a"], 5));
+const state = patcher.patch({ a: 2 }, type.replaceOp(["a"], 5));
 
 // { a: 5 }
 ```
@@ -135,9 +147,11 @@ const state = patch({ a: 2 }, opReplace(["a"], 5));
 Replaces an element in an arrray:
 
 ```
-import { opReplace, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
-const state = patch([1, 2, 3], opReplace([1], 5));
+const state = patcher.patch([1, 2, 3], type.replaceOp([1], 5));
 
 // [ 1, 5, 3]
 ```
@@ -147,9 +161,11 @@ const state = patch([1, 2, 3], opReplace([1], 5));
 Remove a property from an object:
 
 ```
-import { opRemove, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
-const state = patch({ a: 1, b: 2 }, opRemove(["a"]));
+const state = patcher.patch({ a: 1, b: 2 }, type.removeOp(["a"]));
 
 // { b: 2 }
 ```
@@ -157,9 +173,11 @@ const state = patch({ a: 1, b: 2 }, opRemove(["a"]));
 Remove an element from an arrray:
 
 ```
-import { opRemove, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
-const state = patch([4, 5, 6], opRemove([1]));
+const state = patcher.patch([4, 5, 6], type.removeOp([1]));
 
 // [4, 6]
 ```
@@ -169,31 +187,36 @@ const state = patch([4, 5, 6], opRemove([1]));
 Removes a range of values from an array specified by index and length:
 
 ```
-import { opRemoveRange, patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
 const state = [1, 2, 3, 4, 5];
-const op = opRemoveRange([{ index: 1, length: 2 }]);
-const nextState = patch(state, op);
+const op = type.removeRange([{ index: 1, length: 2 }]);
+const nextState = patcher.patch(state, op);
 
 // [1, 4, 5]
 ```
 
 ### Multiple operations at once
 
-Patch also supports multiple operations at once. In that case, all operations will end
-up in the same transaction:
+To execute multiple operations at once, the operations need to be composed together:
 
 ```
-import { patch } from "@mroc/patcher";
+import { OpType, Patcher } from "@mroc/patcher";
+const type = new OpType();
+const patcher = new Patcher(type);
 
 const state = {
     values: [1, 2, 3]
 };
 
-const nextState = patch(state, [
-    opAdd(["values", 1], 4),
-    opRemove(["values", 0]),
-]);
+const op = type.compose(
+    type.insertOp(["values", 1], 4),
+    type.removeOp(["values", 0])
+);
+
+const nextState = patcher.patch(state, op);
 ```
 
 ## Concepts

@@ -1,7 +1,7 @@
 // Overlaps with https://tools.ietf.org/html/rfc6902
 export const OpTypes = {
-  ADD: "add",
-  ADD_RANGE: "add_range",
+  INSERT: "insert",
+  INSERT_RANGE: "insert_range",
   REPLACE: "replace",
   REMOVE: "remove",
   REMOVE_RANGE: "remove_range",
@@ -11,11 +11,11 @@ export const OpTypes = {
 export function OpType() {}
 
 OpType.prototype.insertOp = function (path, value) {
-  return { ...createOp(OpTypes.ADD, path), value };
+  return { ...createOp(OpTypes.INSERT, path), value };
 };
 
 OpType.prototype.insertRangeOp = function (path, value) {
-  return { ...createOp(OpTypes.ADD_RANGE, path), value };
+  return { ...createOp(OpTypes.INSERT_RANGE, path), value };
 };
 
 OpType.prototype.replaceOp = function (path, value) {
@@ -51,9 +51,9 @@ OpType.prototype.invertWithDoc = function (op, doc) {
     return op.map((o) => this.invertWithDoc(o, doc));
   }
   switch (op.op) {
-    case OpTypes.ADD:
+    case OpTypes.INSERT:
       return this.removeOp(op.path);
-    case OpTypes.ADD_RANGE:
+    case OpTypes.INSERT_RANGE:
       return this.removeRangeOp([
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
@@ -110,9 +110,9 @@ function applyOpArray(obj, op) {
     switch (op.op) {
       case OpTypes.REPLACE:
         return arrayReplace(obj, index, op.value);
-      case OpTypes.ADD:
+      case OpTypes.INSERT:
         return arrayAdd(obj, index, op.value);
-      case OpTypes.ADD_RANGE:
+      case OpTypes.INSERT_RANGE:
         return arrayAddRange(obj, index, op.value);
       case OpTypes.REMOVE:
         return arrayRemove(obj, index);
@@ -136,7 +136,7 @@ function applyOpObject(obj, op) {
     if (Object.prototype.hasOwnProperty.call(obj, property)) {
       if (op.path && op.path[0] === property) {
         if (op.path.length === 1) {
-          if (op.op === OpTypes.REPLACE || op.op === OpTypes.ADD) {
+          if (op.op === OpTypes.REPLACE || op.op === OpTypes.INSERT) {
             result[property] = op.value;
           }
         } else {
@@ -151,7 +151,7 @@ function applyOpObject(obj, op) {
     }
   }
   if (
-    (op.op === OpTypes.REPLACE || op.op === OpTypes.ADD) &&
+    (op.op === OpTypes.REPLACE || op.op === OpTypes.INSERT) &&
     op.path.length === 1
   ) {
     result[op.path[0]] = op.value;
