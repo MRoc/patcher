@@ -1,11 +1,11 @@
 {
   "name": "@mroc/patcher",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Immutable state transformations with undo/redo history",
   "main": "lib/index.js",
   "scripts": {
     "test": "jest --watch",
-    "build": "./node_modules/.bin/babel src/index.js --out-dir lib",
+    "build": "./node_modules/.bin/babel ./src/index.js --out-dir lib",
     "lint": "eslint ."
   },
   "repository": {

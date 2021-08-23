@@ -1,42 +1,34 @@
 // Overlaps with https://tools.ietf.org/html/rfc6902
 export const OpTypes = {
-  ADD: "add",
-  ADD_RANGE: "add_range",
+  INSERT: "insert",
+  INSERT_RANGE: "insert_range",
   REPLACE: "replace",
   REMOVE: "remove",
   REMOVE_RANGE: "remove_range",
 };
 
-export function opAdd(path, value, transaction) {
-  return { ...createOp(OpTypes.ADD, path, transaction), value };
-}
-
-export function opAddRange(path, value, transaction) {
-  return { ...createOp(OpTypes.ADD_RANGE, path, transaction), value };
-}
-
-export function opReplace(path, value, transaction) {
-  return { ...createOp(OpTypes.REPLACE, path, transaction), value };
-}
-
-export function opRemove(path, transaction) {
-  return createOp(OpTypes.REMOVE, path, transaction);
-}
-
-export function opRemoveRange(path, transaction) {
-  return createOp(OpTypes.REMOVE_RANGE, path, transaction);
-}
-
-function createOp(op, path, transaction) {
-  const result = { op, path };
-  if (transaction !== undefined) {
-    result.transaction = transaction;
-  }
-  return result;
-}
-
 // https://github.com/Teamwork/ot-docs
 export function OpType() {}
+
+OpType.prototype.insertOp = function (path, value) {
+  return { ...createOp(OpTypes.INSERT, path), value };
+};
+
+OpType.prototype.insertRangeOp = function (path, value) {
+  return { ...createOp(OpTypes.INSERT_RANGE, path), value };
+};
+
+OpType.prototype.replaceOp = function (path, value) {
+  return { ...createOp(OpTypes.REPLACE, path), value };
+};
+
+OpType.prototype.removeOp = function (path) {
+  return createOp(OpTypes.REMOVE, path);
+};
+
+OpType.prototype.removeRangeOp = function (path) {
+  return createOp(OpTypes.REMOVE_RANGE, path);
+};
 
 OpType.prototype.apply = function (doc, op) {
   if (!op) {
@@ -55,31 +47,60 @@ OpType.prototype.apply = function (doc, op) {
 };
 
 OpType.prototype.invertWithDoc = function (op, doc) {
+  if (Array.isArray(op)) {
+    return op.map((o) => this.invertWithDoc(o, doc));
+  }
   switch (op.op) {
-    case OpTypes.ADD:
-      return opRemove(op.path, op.transaction);
-    case OpTypes.ADD_RANGE:
-      return opRemoveRange([
+    case OpTypes.INSERT:
+      return this.removeOp(op.path);
+    case OpTypes.INSERT_RANGE:
+      return this.removeRangeOp([
         ...arraySkipLast(op.path),
         { index: arrayLast(op.path), length: op.value.length },
       ]);
     case OpTypes.REPLACE:
-      return opReplace(op.path, getValue(doc, op.path), op.transaction);
+      return this.replaceOp(op.path, getValue(doc, op.path));
     case OpTypes.REMOVE:
-      return opAdd(op.path, getValue(doc, op.path), op.transaction);
+      return this.insertOp(op.path, getValue(doc, op.path));
     case OpTypes.REMOVE_RANGE:
-      return opAddRange(
+      return this.insertRangeOp(
         [...arraySkipLast(op.path), arrayLast(op.path).index],
-        getValue(doc, op.path),
-        op.transaction
+        getValue(doc, op.path)
       );
     default:
       throw new Error(`Unknown operation op '${op.op}'`);
   }
 };
 
+OpType.prototype.compose = function (op1, op2) {
+  if (!Array.isArray(op1)) {
+    op1 = [op1];
+  }
+  if (!Array.isArray(op2)) {
+    op2 = [op2];
+  }
+  // Default compose is concatenating operations
+  return [...op1, ...op2];
+};
+
 OpType.prototype.composeSimilar = function (op1, op2) {
-  // TODO Should do what canMerge does
+  if (!Array.isArray(op1)) {
+    op1 = [op1];
+  }
+  if (!Array.isArray(op2)) {
+    op2 = [op2];
+  }
+
+  // Compose two replace on the same path by just taking the second operation.
+  if (
+    op1.length === 1 &&
+    op2.length === 1 &&
+    op1[0].op === OpTypes.REPLACE &&
+    op2[0].op === OpTypes.REPLACE &&
+    arrayEquals(op1[0].path, op2[0].path)
+  ) {
+    return op2[0];
+  }
   return null;
 };
 
@@ -89,9 +110,9 @@ function applyOpArray(obj, op) {
     switch (op.op) {
       case OpTypes.REPLACE:
         return arrayReplace(obj, index, op.value);
-      case OpTypes.ADD:
+      case OpTypes.INSERT:
         return arrayAdd(obj, index, op.value);
-      case OpTypes.ADD_RANGE:
+      case OpTypes.INSERT_RANGE:
         return arrayAddRange(obj, index, op.value);
       case OpTypes.REMOVE:
         return arrayRemove(obj, index);
@@ -115,7 +136,7 @@ function applyOpObject(obj, op) {
     if (Object.prototype.hasOwnProperty.call(obj, property)) {
       if (op.path && op.path[0] === property) {
         if (op.path.length === 1) {
-          if (op.op === OpTypes.REPLACE || op.op === OpTypes.ADD) {
+          if (op.op === OpTypes.REPLACE || op.op === OpTypes.INSERT) {
             result[property] = op.value;
           }
         } else {
@@ -130,7 +151,7 @@ function applyOpObject(obj, op) {
     }
   }
   if (
-    (op.op === OpTypes.REPLACE || op.op === OpTypes.ADD) &&
+    (op.op === OpTypes.REPLACE || op.op === OpTypes.INSERT) &&
     op.path.length === 1
   ) {
     result[op.path[0]] = op.value;
@@ -187,10 +208,21 @@ export function getValue(obj, path) {
   }
 }
 
+function createOp(op, path) {
+  return { op, path };
+}
+
 function arrayLast(array) {
   return array[array.length - 1];
 }
 
 function arraySkipLast(array) {
   return array.slice(0, array.length - 1);
+}
+
+function arrayEquals(array0, array1) {
+  return (
+    array0.length === array1.length &&
+    array0.every((value, index) => value === array1[index])
+  );
 }

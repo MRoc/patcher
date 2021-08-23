@@ -1,46 +1,6 @@
-// Overlaps with https://tools.ietf.org/html/rfc6902
+import { OpType, getValue } from "./optype";
 
-import {
-  OpType,
-  OpTypes,
-  opAdd,
-  opAddRange,
-  opReplace,
-  opReplaceEnriched,
-  opRemove,
-  opRemoveEnriched,
-  opRemoveRange,
-  opRemoveRangeEnriched,
-  opMoveRange,
-} from "./optype";
-
-const type = new OpType();
-
-export {
-  opAdd,
-  opAddRange,
-  opReplace,
-  opReplaceEnriched,
-  opRemove,
-  opRemoveEnriched,
-  opRemoveRange,
-  opRemoveRangeEnriched,
-  opMoveRange,
-  type,
-};
-
-export function getValue(obj, path) {
-  const property = path[0];
-  if (path.length === 1) {
-    if (Array.isArray(obj) && typeof property === "object") {
-      return obj.slice(property.index, property.index + property.length);
-    } else {
-      return obj[property];
-    }
-  } else {
-    return getValue(obj[property], path.slice(1));
-  }
-}
+export { OpType, getValue };
 
 export function emptyHistory() {
   return createHistory();
@@ -54,37 +14,41 @@ export const defaultTransaction = -1;
 
 export const defaultVersion = 0;
 
-export function patch(state, op, newTransaction) {
-  return patchWithOps(state, op, newTransaction)[0];
+export function Patcher(type) {
+  this.type = type;
 }
 
-export function patchWithOps(state, op, newTransaction) {
+Patcher.prototype.patch = function (state, op, newTransaction) {
+  return this.patchWithOps(state, op, newTransaction)[0];
+};
+
+Patcher.prototype.patchWithOps = function (state, op, newTransaction) {
   let history = state.history || emptyHistory();
   let transaction =
     state.transaction === undefined ? defaultTransaction : state.transaction;
   if (newTransaction || transaction === defaultTransaction) {
-    if (canMergeOp(history, transaction, op)) {
-      history = discardFutureOps(history, transaction + 1);
-      history = mergeLastOp(history, op);
+    if (this.canMergeOp(history, transaction, op)) {
+      history = this.discardFutureOps(history, transaction + 1);
+      history = this.mergeLastOp(state, history, op, false);
     } else {
       transaction++;
-      history = discardFutureOps(history, transaction);
-      history = addOp(state, history, transaction, op);
+      history = this.discardFutureOps(history, transaction);
+      history = this.insertOp(state, history, op);
     }
   } else {
-    history = addOp(state, history, transaction, op);
+    history = this.mergeLastOp(state, history, op, true);
   }
 
   return [
     combine(
-      type.apply(state, op),
+      this.type.apply(state, op),
       history,
       transaction,
       nextVersion(state, op)
     ),
     op,
   ];
-}
+};
 
 export function combine(
   state,
@@ -102,148 +66,114 @@ export function combine(
   return { ...state, history, transaction, version };
 }
 
-export function nextVersion(state, op) {
-  if (!Array.isArray(op)) {
-    op = [op];
-  }
+function nextVersion(state, op) {
   if (state.version === undefined) {
     state.version = defaultVersion;
   }
-  return state.version + op.length;
+  return state.version + 1;
 }
 
-export function hasUndo(state) {
+Patcher.prototype.hasUndo = function (state) {
   return state.history.ops.length > 0 && state.transaction > defaultTransaction;
-}
+};
 
-export function undo(state) {
-  return undoWithOps(state)[0];
-}
+Patcher.prototype.undo = function (state) {
+  return this.undoWithOps(state)[0];
+};
 
-export function undoWithOps(state) {
+Patcher.prototype.undoWithOps = function (state) {
   const transaction = state.transaction;
 
-  const operations = state.history.opsInverted
-    .filter((op) => op.transaction === transaction)
-    .reverse();
+  const op = state.history.opsInverted[transaction];
 
-  if (operations.length === 0) {
+  if (!op) {
     throw new Error(`Nothing to undo! (transaction=${transaction})`);
   }
 
   return [
     combine(
-      type.apply(state, operations),
+      this.type.apply(state, op),
       state.history,
       transaction - 1,
-      nextVersion(state, operations)
+      nextVersion(state, op)
     ),
-    operations,
+    op,
   ];
-}
+};
 
-export function hasRedo(state) {
+Patcher.prototype.hasRedo = function (state) {
   return (
     state.history.ops.length > 0 &&
-    state.transaction < arrayMax(state.history.ops.map((op) => op.transaction))
+    state.transaction < state.history.ops.length - 1
   );
-}
+};
 
-export function redo(state) {
-  return redoWithOps(state)[0];
-}
+Patcher.prototype.redo = function (state) {
+  return this.redoWithOps(state)[0];
+};
 
-export function redoWithOps(state) {
+Patcher.prototype.redoWithOps = function (state) {
   const transaction = state.transaction + 1;
 
-  const operations = state.history.ops.filter(
-    (op) => op.transaction === transaction
-  );
+  const op = state.history.ops[transaction];
 
-  if (operations.length === 0) {
+  if (!op) {
     throw new Error(`Nothing to redo! (transaction=${transaction})`);
   }
 
   return [
     combine(
-      type.apply(state, operations),
+      this.type.apply(state, op),
       state.history,
       transaction,
-      nextVersion(state, operations)
+      nextVersion(state, op)
     ),
-    operations,
+    op,
   ];
-}
+};
 
-export function canMergeOp(history, transaction, op) {
-  if (Array.isArray(op)) {
-    if (op.length === 1) {
-      op = op[0];
-    } else {
-      return false;
-    }
-  }
-
-  const lastOps = history.ops.filter((op) => op.transaction === transaction);
-  if (lastOps.length !== 1) {
+Patcher.prototype.canMergeOp = function (history, transaction, op) {
+  if (transaction < 0 || transaction >= history.ops.length) {
     return false;
   }
 
-  const lastOp = lastOps[0];
-  if (lastOp.op !== OpTypes.REPLACE) {
-    return false;
-  }
+  const lastOps = history.ops[transaction];
+  return this.type.composeSimilar(lastOps, op) !== null;
+};
 
-  if (!arrayEquals(lastOp.path, op.path)) {
-    return false;
-  }
+Patcher.prototype.mergeLastOp = function (state, history, op, forceCompose) {
+  const opInverted = this.type.invertWithDoc(op, state);
 
-  return true;
-}
-
-export function mergeLastOp(history, op) {
-  if (Array.isArray(op)) {
-    if (op.length !== 1) {
-      throw new Error(`Merge only works on single operations!`);
-    }
-    op = op[0];
-  }
+  const composeFunc = forceCompose
+    ? this.type.compose
+    : this.type.composeSimilar;
 
   const lastOp = arrayLast(history.ops);
+  const mergedOp = composeFunc(lastOp, op);
+
+  const lastOpInverted = arrayLast(history.opsInverted);
+  const mergedOpInverted = composeFunc(opInverted, lastOpInverted);
 
   return {
-    ops: [...arraySkipLast(history.ops), { ...lastOp, value: op.value }],
-    opsInverted: history.opsInverted,
+    ops: [...arraySkipLast(history.ops), mergedOp],
+    opsInverted: [...arraySkipLast(history.opsInverted), mergedOpInverted],
   };
-}
+};
 
-export function discardFutureOps(history, transaction) {
+Patcher.prototype.discardFutureOps = function (history, transaction) {
   return {
-    ops: history.ops.filter((op) => op.transaction < transaction),
-    opsInverted: history.opsInverted.filter(
-      (op) => op.transaction < transaction
-    ),
+    ops: history.ops.slice(0, transaction),
+    opsInverted: history.opsInverted.slice(0, transaction),
   };
-}
+};
 
-export function addOp(state, history, transaction, op) {
-  if (!Array.isArray(op)) {
-    op = [op];
-  }
-
-  const ops = op.map((o) => {
-    return { ...o, transaction };
-  });
-
-  const opsInverted = op.map((o) => {
-    return { ...type.invertWithDoc(o, state), transaction };
-  });
-
+Patcher.prototype.insertOp = function (state, history, op) {
+  const opInverted = this.type.invertWithDoc(op, state);
   return {
-    ops: [...history.ops, ...ops],
-    opsInverted: [...history.opsInverted, ...opsInverted],
+    ops: [...history.ops, op],
+    opsInverted: [...history.opsInverted, opInverted],
   };
-}
+};
 
 function arrayLast(array) {
   return array[array.length - 1];
@@ -251,15 +181,4 @@ function arrayLast(array) {
 
 function arraySkipLast(array) {
   return array.slice(0, array.length - 1);
-}
-
-function arrayEquals(array0, array1) {
-  return (
-    array0.length === array1.length &&
-    array0.every((value, index) => value === array1[index])
-  );
-}
-
-function arrayMax(array) {
-  return Math.max(...array);
 }
